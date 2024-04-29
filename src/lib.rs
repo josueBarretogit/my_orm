@@ -2,7 +2,7 @@ extern crate my_orm_macro_derive;
 
 pub trait Repository {
     fn find(&self) -> String;
-    fn select(self, fields: Vec<&str>) -> Self;
+    fn select(&mut self, fields: Vec<&str>) -> &mut Self;
 }
 
 #[cfg(test)]
@@ -19,16 +19,19 @@ mod tests {
 
     #[test]
     fn find_method_return_select() {
-        let entity = Entity::default();
-        assert_eq!("SELECT * FROM entity", entity.find())
+        let enti = Entity::default();
+
+        assert_eq!("SELECT * FROM entity", NewRepository::default().find())
     }
 
     #[test]
     fn find_method_queries_specific_struct_properties() {
-        let entity = Entity::default();
+        let mut entity = Entity::default();
         assert_eq!(
             "SELECT title, description FROM entity",
-            entity.select(vec!["title", "description"]).find()
+            NewRepository::default()
+                .select(vec!["title", "description"])
+                .find()
         )
     }
 

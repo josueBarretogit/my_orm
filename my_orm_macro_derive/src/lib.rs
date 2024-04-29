@@ -13,21 +13,43 @@ pub fn get_repository(struc: TokenStream) -> TokenStream {
 
     let struct_name = struct_name_raw.to_string().to_lowercase();
 
-    let mysql_builder = MysqlBuilder::default();
+    let mut mysql_builder = MysqlBuilder::default();
 
-    let find_statement = mysql_builder
-        .set_table_name(struct_name)
-        .generate_simple_select_statement();
+    let struct_fields = input.attrs;
+
+    mysql_builder.set_table_name(struct_name.clone());
+
+    let find_statement = mysql_builder.generate_simple_select_statement();
 
     // Generate the implementation for the trait
     let expanded = quote! {
 
-    impl Repository for #struct_name_raw {
-    fn find(&self) -> String {
-    #find_statement.to_string()
+    #[derive(Default, Debug)]
+    pub struct NewRepository {
+    pub select_fields : String
     }
 
-    fn select(self, fields : Vec<&str>) -> Self {
+
+    impl Repository for NewRepository {
+    fn find(&self) -> String {
+    if self.select_fields.is_empty() {
+
+    #find_statement.to_string()
+    } else {
+
+    format!("SELECT {} FROM {}", self.select_fields, #struct_name.to_string() )
+
+    }
+
+    }
+
+
+    fn select(&mut self, fields : Vec<&str>) -> &mut Self {
+        let mut select_fields = String::from("SELECT ");
+        for field in fields {
+        select_fields.push_str(field);
+        }
+        self.select_fields = select_fields;
 
         self
         }
@@ -40,7 +62,7 @@ pub fn get_repository(struc: TokenStream) -> TokenStream {
 }
 
 trait SQLBuilder {
-    fn set_table_name(self, entity_name: String) -> Self;
+    fn set_table_name(&mut self, entity_name: String) -> &mut Self;
     fn generate_simple_select_statement(&self) -> String;
     fn generate_select_statement_with_fields(&self, field: Vec<&str>) -> String;
 }
@@ -51,7 +73,7 @@ struct MysqlBuilder {
 }
 
 impl SQLBuilder for MysqlBuilder {
-    fn set_table_name(mut self, entity_name: String) -> Self {
+    fn set_table_name(&mut self, entity_name: String) -> &mut Self {
         self.table_name = entity_name;
         self
     }
