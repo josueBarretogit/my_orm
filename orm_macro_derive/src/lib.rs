@@ -17,29 +17,39 @@ pub fn get_repository(struc: TokenStream) -> TokenStream {
 
     let mut mysql_builder = MysqlBuilder::default();
 
-
     mysql_builder.set_table_name(struct_name.clone());
 
     let find_statement = mysql_builder.generate_simple_select_statement();
 
+    let struct_fields = match input.data {
+        syn::Data::Struct(ref data) => data,
+        syn::Data::Enum(_) => unimplemented!(),
+        syn::Data::Union(_) => unimplemented!(),
+    };
+
+    for fiel in struct_fields.fields.iter() {
+        println!("{:#?}", fiel.ident.as_ref().unwrap());
+    }
     // Generate the implementation for the trait
     let expanded = quote! {
 
     #[derive(Debug)]
     pub struct #new_struct_name {
 
-    pub select_fields : String
+    select_fields : String,
+    insert_fields : String,
+    insert_values_fields : String,
 
     }
 
 
-    impl #new_struct_name { 
+    impl #new_struct_name {
 
-        pub fn builder() -> Self {
+    pub fn builder() -> Self {
 
-            Self { select_fields : "".into() }
-        }
-    } 
+    Self { select_fields : "".into() , insert_fields : "".into(), insert_values_fields : "".into() }
+    }
+    }
 
     impl OrmRepository for #new_struct_name {
 
@@ -55,8 +65,16 @@ pub fn get_repository(struc: TokenStream) -> TokenStream {
 
     }
 
+    fn create(&self) -> String {
 
-    fn select(&mut self, fields : Vec<&str>) -> &mut Self {
+    format!("INSERT INTO {} {} VALUES {}", #struct_name.to_string(), self.insert_fields, self.insert_values_fields)
+
+    }
+
+
+
+
+    fn select_fields(&mut self, fields : Vec<&str>) -> &mut Self {
         for field in fields {
 
         self.select_fields.push_str(field);
@@ -64,7 +82,7 @@ pub fn get_repository(struc: TokenStream) -> TokenStream {
         self.select_fields.push_str(", ");
 
         }
-        
+
         self.select_fields.pop();
         self.select_fields.pop();
 
@@ -72,6 +90,7 @@ pub fn get_repository(struc: TokenStream) -> TokenStream {
         }
 
         }
+
         };
 
     // Convert the generated implementation back into a token stream
