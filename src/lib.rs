@@ -3,7 +3,7 @@ extern crate orm_macro_derive;
 pub trait OrmRepository {
     fn find(&self) -> String;
     fn select_fields(&mut self, fields: Vec<&str>) -> &mut Self;
-    fn create(&self) -> String;
+    fn create(&mut self) -> String;
 }
 
 #[cfg(test)]
@@ -40,8 +40,7 @@ mod tests {
     #[test]
     fn create_method_build_sql() {
         assert_eq!(
-            "INSERT INTO entity (id, title , description, others) VALUES ($1, $2, $3,
-        $4)",
+            "INSERT INTO entity (id,title,description,others) VALUES ($1,$2,$3,$4)",
             EntityOrmRepository::builder().create()
         )
     }

@@ -21,15 +21,26 @@ pub fn get_repository(struc: TokenStream) -> TokenStream {
 
     let find_statement = mysql_builder.generate_simple_select_statement();
 
-    let struct_fields = match input.data {
-        syn::Data::Struct(ref data) => data,
+    let mut insert_fields = String::new();
+
+    let mut insert_values_fields = String::new();
+
+    let _struct_fields = match input.data {
+        syn::Data::Struct(ref data) => {
+            for (index, fieldname) in data.fields.iter().enumerate() {
+                let current_value = index + 1;
+                insert_fields.push_str(
+                    format!("{},", fieldname.ident.as_ref().unwrap().to_string()).as_str(),
+                );
+                insert_values_fields.push_str(format!("${},", current_value).as_str());
+            }
+            insert_fields.pop();
+            insert_values_fields.pop();
+        }
         syn::Data::Enum(_) => unimplemented!(),
         syn::Data::Union(_) => unimplemented!(),
     };
 
-    for fiel in struct_fields.fields.iter() {
-        println!("{:#?}", fiel.ident.as_ref().unwrap());
-    }
     // Generate the implementation for the trait
     let expanded = quote! {
 
@@ -65,9 +76,13 @@ pub fn get_repository(struc: TokenStream) -> TokenStream {
 
     }
 
-    fn create(&self) -> String {
+    fn create(&mut self) -> String {
 
-    format!("INSERT INTO {} {} VALUES {}", #struct_name.to_string(), self.insert_fields, self.insert_values_fields)
+    self.insert_fields = #insert_fields.to_string();
+    self.insert_values_fields = #insert_values_fields.to_string();
+
+
+    format!("INSERT INTO {} ({}) VALUES ({})", #struct_name.to_string(), self.insert_fields, self.insert_values_fields)
 
     }
 
