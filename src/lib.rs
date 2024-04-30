@@ -1,5 +1,3 @@
-extern crate my_orm_macro_derive;
-
 pub trait Repository {
     fn find(&self) -> String;
     fn select(&mut self, fields: Vec<&str>) -> &mut Self;
@@ -8,9 +6,10 @@ pub trait Repository {
 #[cfg(test)]
 mod tests {
 
+    
     use crate::Repository;
 
-    #[derive(Default, my_orm_macro_derive::GetRepository)]
+    #[derive(Default,orm_macro_derive::GetRepository)]
     struct Entity {
         title: String,
         description: String,
@@ -25,6 +24,7 @@ mod tests {
 
     #[test]
     fn find_method_queries_specific_struct_properties() {
+        
         assert_eq!(
             "SELECT title, description FROM entity",
             EntityRepository::builder()
