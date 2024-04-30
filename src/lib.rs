@@ -4,6 +4,7 @@ pub trait OrmRepository {
     fn find(&self) -> String;
     fn select_fields(&mut self, fields: Vec<&str>) -> &mut Self;
     fn create(&mut self) -> String;
+    fn delete(&self) -> String;
 }
 
 #[cfg(test)]
@@ -40,8 +41,16 @@ mod tests {
     #[test]
     fn create_method_build_sql() {
         assert_eq!(
-            "INSERT INTO entity (id,title,description,others) VALUES ($1,$2,$3,$4)",
+            "INSERT INTO entity (id,title,description,others) VALUES ($1,$2,$3,$4) RETURNING id,title,description,others",
             EntityOrmRepository::builder().create()
+        )
+    }
+
+    #[test]
+    fn delete_method_build_sql() {
+        assert_eq!(
+            "DELETE FROM entity WHERE id = $1 RETURNING id,title,description,others",
+            EntityOrmRepository::builder().delete()
         )
     }
 

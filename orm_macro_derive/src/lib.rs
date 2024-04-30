@@ -58,7 +58,8 @@ pub fn get_repository(struc: TokenStream) -> TokenStream {
 
     pub fn builder() -> Self {
 
-    Self { select_fields : "".into() , insert_fields : "".into(), insert_values_fields : "".into() }
+    Self { select_fields : "".into() , insert_fields : #insert_fields.to_string(), insert_values_fields :
+    #insert_values_fields.to_string() }
     }
     }
 
@@ -78,14 +79,15 @@ pub fn get_repository(struc: TokenStream) -> TokenStream {
 
     fn create(&mut self) -> String {
 
-    self.insert_fields = #insert_fields.to_string();
-    self.insert_values_fields = #insert_values_fields.to_string();
-
-
-    format!("INSERT INTO {} ({}) VALUES ({})", #struct_name.to_string(), self.insert_fields, self.insert_values_fields)
+    format!("INSERT INTO {} ({}) VALUES ({}) RETURNING {}", #struct_name.to_string(), self.insert_fields, self.insert_values_fields, self.insert_fields)
 
     }
 
+
+    fn delete(&self) -> String {
+
+    format!("DELETE FROM {} WHERE id = $1 RETURNING {}", #struct_name.to_string(), self.insert_fields )
+    }
 
 
 
