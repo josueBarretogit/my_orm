@@ -1,6 +1,6 @@
 [package]
 name = "orm_macro"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 authors = ["Josue <josuebarretogit@gmail.com>"]
 repository = "https://github.com/josueBarretogit/my_orm"
