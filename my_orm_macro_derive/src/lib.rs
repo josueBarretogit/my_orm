@@ -1,7 +1,7 @@
 extern crate proc_macro;
 
 use proc_macro::TokenStream;
-use quote::quote;
+use quote::{format_ident, quote, ToTokens};
 use syn::{parse_macro_input, DeriveInput};
 
 #[proc_macro_derive(GetRepository)]
@@ -13,9 +13,10 @@ pub fn get_repository(struc: TokenStream) -> TokenStream {
 
     let struct_name = struct_name_raw.to_string().to_lowercase();
 
+    let new_struct_name = format_ident!("{}Repository", struct_name_raw);
+
     let mut mysql_builder = MysqlBuilder::default();
 
-    let struct_fields = input.attrs;
 
     mysql_builder.set_table_name(struct_name.clone());
 
@@ -24,13 +25,24 @@ pub fn get_repository(struc: TokenStream) -> TokenStream {
     // Generate the implementation for the trait
     let expanded = quote! {
 
-    #[derive(Default, Debug)]
-    pub struct NewRepository {
+    #[derive(Debug)]
+    pub struct #new_struct_name {
+
     pub select_fields : String
+
     }
 
 
-    impl Repository for NewRepository {
+    impl #new_struct_name { 
+
+        fn builder() -> Self {
+
+            Self { select_fields : "".into() }
+        }
+    } 
+
+    impl Repository for #new_struct_name {
+
     fn find(&self) -> String {
     if self.select_fields.is_empty() {
 
@@ -45,11 +57,16 @@ pub fn get_repository(struc: TokenStream) -> TokenStream {
 
 
     fn select(&mut self, fields : Vec<&str>) -> &mut Self {
-        let mut select_fields = String::from("SELECT ");
         for field in fields {
-        select_fields.push_str(field);
+
+        self.select_fields.push_str(field);
+
+        self.select_fields.push_str(", ");
+
         }
-        self.select_fields = select_fields;
+        
+        self.select_fields.pop();
+        self.select_fields.pop();
 
         self
         }

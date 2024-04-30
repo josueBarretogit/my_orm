@@ -19,21 +19,21 @@ mod tests {
 
     #[test]
     fn find_method_return_select() {
-        let enti = Entity::default();
 
-        assert_eq!("SELECT * FROM entity", NewRepository::default().find())
+        assert_eq!("SELECT * FROM entity", EntityRepository::builder().find())
     }
 
     #[test]
     fn find_method_queries_specific_struct_properties() {
-        let mut entity = Entity::default();
         assert_eq!(
             "SELECT title, description FROM entity",
-            NewRepository::default()
+            EntityRepository::builder()
                 .select(vec!["title", "description"])
                 .find()
         )
     }
+
+    
 
     // #[test]
     // fn find_method_queries_with_where_clause() {
