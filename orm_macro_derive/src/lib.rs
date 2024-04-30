@@ -35,7 +35,7 @@ pub fn get_repository(struc: TokenStream) -> TokenStream {
 
     impl #new_struct_name { 
 
-        fn builder() -> Self {
+        pub fn builder() -> Self {
 
             Self { select_fields : "".into() }
         }
