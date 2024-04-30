@@ -13,7 +13,7 @@ pub fn get_repository(struc: TokenStream) -> TokenStream {
 
     let struct_name = struct_name_raw.to_string().to_lowercase();
 
-    let new_struct_name = format_ident!("{}Repository", struct_name_raw);
+    let new_struct_name = format_ident!("{}OrmRepository", struct_name_raw);
 
     let mut mysql_builder = MysqlBuilder::default();
 
@@ -41,7 +41,7 @@ pub fn get_repository(struc: TokenStream) -> TokenStream {
         }
     } 
 
-    impl Repository for #new_struct_name {
+    impl OrmRepository for #new_struct_name {
 
     fn find(&self) -> String {
     if self.select_fields.is_empty() {

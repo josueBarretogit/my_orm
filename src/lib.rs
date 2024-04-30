@@ -1,4 +1,4 @@
-pub trait Repository {
+pub trait OrmRepository {
     fn find(&self) -> String;
     fn select(&mut self, fields: Vec<&str>) -> &mut Self;
 }
@@ -7,7 +7,7 @@ pub trait Repository {
 mod tests {
 
     
-    use crate::Repository;
+    use crate::OrmRepository;
 
     #[derive(Default,orm_macro_derive::GetRepository)]
     struct Entity {
@@ -19,7 +19,7 @@ mod tests {
     #[test]
     fn find_method_return_select() {
 
-        assert_eq!("SELECT * FROM entity", EntityRepository::builder().find())
+        assert_eq!("SELECT * FROM entity", EntityOrmRepository::builder().find())
     }
 
     #[test]
@@ -27,7 +27,7 @@ mod tests {
         
         assert_eq!(
             "SELECT title, description FROM entity",
-            EntityRepository::builder()
+            EntityOrmRepository::builder()
                 .select(vec!["title", "description"])
                 .find()
         )
