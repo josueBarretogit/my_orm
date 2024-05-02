@@ -4,6 +4,7 @@ pub trait OrmRepository {
     fn find(&self) -> String;
     fn select_fields(&mut self, fields: Vec<&str>) -> &mut Self;
     fn create(&mut self) -> String;
+    fn update(&self) -> String;
     fn delete(&self) -> String;
 }
 
@@ -20,10 +21,16 @@ mod tests {
         others: Vec<u32>,
     }
 
+    #[derive(Default, orm_macro_derive::GetRepository)]
+    struct EntityUpdateDto {
+        title : String,
+        description : String
+    }
+
     #[test]
     fn find_method_return_select() {
         assert_eq!(
-            "SELECT * FROM entity",
+            "SELECT id,title,description,others FROM entity",
             EntityOrmRepository::builder().find()
         )
     }
@@ -52,6 +59,13 @@ mod tests {
             "DELETE FROM entity WHERE id = $1 RETURNING id,title,description,others",
             EntityOrmRepository::builder().delete()
         )
+    }
+
+    #[test]
+    fn update_method_builds_sql() {
+        assert_eq!("UPDATE entity SET title = $1,description = $2 WHERE, id = $3", 
+        EntityUpdateDtoOrmRepository::builder().update()
+    )
     }
 
     // #[test]

@@ -2,7 +2,7 @@ extern crate proc_macro;
 
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, DeriveInput};
+use syn::{parse_macro_input, DataStruct, DeriveInput};
 
 #[proc_macro_derive(GetRepository)]
 pub fn get_repository(struc: TokenStream) -> TokenStream {
@@ -11,35 +11,48 @@ pub fn get_repository(struc: TokenStream) -> TokenStream {
     // Get the name of the struct or enum we are deriving the trait for
     let struct_name_raw = &input.ident;
 
-    let struct_name = struct_name_raw.to_string().to_lowercase();
+    impl_repository(struct_name_raw, input.data)
 
-    let new_struct_name = format_ident!("{}OrmRepository", struct_name_raw);
+    // Convert the generated implementation back into a token stream
+}
+
+fn impl_repository(struc_name: &syn::Ident, fields: syn::Data) -> TokenStream {
+    let struct_name = struc_name.to_string().to_lowercase();
+
+    let new_struct_name = format_ident!("{}OrmRepository", struc_name);
 
     let mut mysql_builder = MysqlBuilder::default();
 
     mysql_builder.set_table_name(struct_name.clone());
 
-    let find_statement = mysql_builder.generate_simple_select_statement();
-
     let mut insert_fields = String::new();
 
     let mut insert_values_fields = String::new();
 
-    let _struct_fields = match input.data {
+    let mut update_fields = String::new();
+
+    let struct_fields = match fields {
         syn::Data::Struct(ref data) => {
             for (index, fieldname) in data.fields.iter().enumerate() {
                 let current_value = index + 1;
+                let fieldname = fieldname.ident.as_ref().unwrap().to_string();
                 insert_fields.push_str(
-                    format!("{},", fieldname.ident.as_ref().unwrap().to_string()).as_str(),
+                    format!("{},", fieldname).as_str()
                 );
                 insert_values_fields.push_str(format!("${},", current_value).as_str());
+
+                update_fields.push_str(format!("{} = ${},", fieldname, current_value ).as_str())
             }
             insert_fields.pop();
             insert_values_fields.pop();
+            data
         }
         syn::Data::Enum(_) => unimplemented!(),
         syn::Data::Union(_) => unimplemented!(),
     };
+
+
+
 
     // Generate the implementation for the trait
     let expanded = quote! {
@@ -47,9 +60,11 @@ pub fn get_repository(struc: TokenStream) -> TokenStream {
     #[derive(Debug)]
     pub struct #new_struct_name {
 
+    name : String,
     select_fields : String,
-    insert_fields : String,
+    fields : String,
     insert_values_fields : String,
+    update_fields : String,
 
     }
 
@@ -58,37 +73,44 @@ pub fn get_repository(struc: TokenStream) -> TokenStream {
 
     pub fn builder() -> Self {
 
-    Self { select_fields : "".into() , insert_fields : #insert_fields.to_string(), insert_values_fields :
-    #insert_values_fields.to_string() }
+    Self { select_fields : "".into() , fields : #insert_fields.to_string(), insert_values_fields :
+    #insert_values_fields.to_string(), name : #struct_name.to_string(), update_fields : #update_fields.to_string() }
     }
     }
 
     impl OrmRepository for #new_struct_name {
 
     fn find(&self) -> String {
+
     if self.select_fields.is_empty() {
 
-    #find_statement.to_string()
-    } else {
-
-    format!("SELECT {} FROM {}", self.select_fields, #struct_name.to_string() )
-
+    return format!("SELECT {} FROM {}", self.fields, #struct_name.to_string())
     }
+
+    format!("SELECT {} FROM {}", self.select_fields, #struct_name.to_string())
+
 
     }
 
     fn create(&mut self) -> String {
 
-    format!("INSERT INTO {} ({}) VALUES ({}) RETURNING {}", #struct_name.to_string(), self.insert_fields, self.insert_values_fields, self.insert_fields)
+    format!("INSERT INTO {} ({}) VALUES ({}) RETURNING {}", #struct_name.to_string(), self.fields,
+    self.insert_values_fields, self.fields)
 
     }
 
 
     fn delete(&self) -> String {
 
-    format!("DELETE FROM {} WHERE id = $1 RETURNING {}", #struct_name.to_string(), self.insert_fields )
+    format!("DELETE FROM {} WHERE id = $1 RETURNING {}", #struct_name.to_string(), self.fields )
+
     }
 
+    fn update(&self) -> String {
+        
+        format!("UPDATE {} SET {}", self.name, self.update_fields)
+        
+    }
 
 
     fn select_fields(&mut self, fields : Vec<&str>) -> &mut Self {
@@ -110,7 +132,6 @@ pub fn get_repository(struc: TokenStream) -> TokenStream {
 
         };
 
-    // Convert the generated implementation back into a token stream
     expanded.into()
 }
 
