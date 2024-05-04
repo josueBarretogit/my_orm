@@ -66,7 +66,7 @@ mod tests {
     #[test]
     fn create_method_build_insert_sql() {
         assert_eq!(
-            "INSERT INTO entity (description) VALUES ($1) RETURNING description",
+            "INSERT INTO entity (description) VALUES ($1) RETURNING id,description",
             EntityCreateDtoOrm::builder().create()
         )
     }
@@ -82,7 +82,7 @@ mod tests {
     #[test]
     fn update_method_builds_sql() {
         assert_eq!(
-            "UPDATE entity SET title = $1,description = $2 WHERE id = $3",
+            "UPDATE entity SET title = $1,description = $2 WHERE id = $3 RETURNING id,title,description",
             EntityUpdateDtoOrm::builder().update()
         )
     }
