@@ -21,6 +21,7 @@ mod tests {
         title: String,
         description: String,
         others: Vec<u32>,
+        another_property:  bool
     }
 
     #[derive(Default, orm_macro_derive::GetRepository)]
@@ -30,16 +31,30 @@ mod tests {
         description: String,
     }
 
+    #[derive(Default, orm_macro_derive::GetRepository)]
+    #[table_name("entity")]
+    struct EntityFindDto {
+        title: String,
+        others: String,
+    }
+
+    #[derive(Default, orm_macro_derive::GetRepository)]
+    #[table_name("entity")]
+    struct EntityCreateDto {
+        description: String,
+    }
+
+
     #[test]
-    fn find_method_return_select() {
+    fn find_method_build_select_sql() {
         assert_eq!(
-            "SELECT id,title,description,others FROM entity",
-            EntityOrm::builder().find()
+            "SELECT title,others FROM entity",
+            EntityFindDtoOrm::builder().find()
         )
     }
 
     #[test]
-    fn find_method_queries_specific_struct_properties() {
+    fn find_method_queries_specific_properties() {
         assert_eq!(
             "SELECT title, description FROM entity",
             EntityOrm::builder()
@@ -49,17 +64,17 @@ mod tests {
     }
 
     #[test]
-    fn create_method_build_sql() {
+    fn create_method_build_insert_sql() {
         assert_eq!(
-        "INSERT INTO entity (id,title,description,others) VALUES ($1,$2,$3,$4) RETURNING id,title,description,others",
-        EntityOrm::builder().create()
+            "INSERT INTO entity (description) VALUES ($1) RETURNING description",
+            EntityCreateDtoOrm::builder().create()
         )
     }
 
     #[test]
-    fn delete_method_build_sql() {
+    fn delete_method_build_delete_sql() {
         assert_eq!(
-            "DELETE FROM entity WHERE id = $1 RETURNING id,title,description,others",
+            "DELETE FROM entity WHERE id = $1 RETURNING id,title,description,others,another_property",
             EntityOrm::builder().delete()
         )
     }

@@ -5,8 +5,7 @@ use quote::{format_ident, quote, ToTokens};
 use syn::{parse_macro_input, DeriveInput};
 use utils::*;
 
-mod  utils;
-
+mod utils;
 
 #[allow(dead_code)]
 #[proc_macro_derive(GetRepository, attributes(table_name))]
@@ -17,12 +16,12 @@ pub fn get_repository(struc: TokenStream) -> TokenStream {
 }
 
 fn impl_repository(struc: DeriveInput) -> TokenStream {
-
     let attrs = struc.attrs;
 
     let the_real_table_name = attrs.iter().last().unwrap();
 
-    let the_real_table_name = extract_string_atribute(the_real_table_name.to_token_stream().to_string());
+    let the_real_table_name =
+        extract_string_atribute(the_real_table_name.to_token_stream().to_string());
 
     let struct_name_raw = &struc.ident;
 
@@ -36,7 +35,7 @@ fn impl_repository(struc: DeriveInput) -> TokenStream {
 
     let mut update_fields = String::new();
 
-     match struc.data {
+    match struc.data {
         syn::Data::Struct(ref data) => {
             for (index, fieldname) in data.fields.iter().enumerate() {
                 let current_value = index + 1;
@@ -51,92 +50,99 @@ fn impl_repository(struc: DeriveInput) -> TokenStream {
             insert_values_fields.pop();
             update_fields.pop();
 
-            let where_clause_in_update_clause = format!(" WHERE id = ${}", update_fields.split(',').count() + 1 );
+            let where_clause_in_update_clause =
+                format!(" WHERE id = ${}", update_fields.split(',').count() + 1);
 
             update_fields.push_str(where_clause_in_update_clause.as_str());
-
-
         }
         _ => unimplemented!(),
     };
 
-     quote! {
+    quote! {
 
-    #[derive(Debug)]
-    pub struct #new_struct_name {
+#[derive(Debug)]
+pub struct #new_struct_name {
 
-    name : String,
-    select_fields : String,
-    fields : String,
-    insert_values_fields : String,
-    update_fields : String,
+name : String,
+select_fields : String,
+fields : String,
+insert_values_fields : String,
+update_fields : String,
+
+}
+
+
+impl #new_struct_name {
+
+///Instanciates a new OrmRepository builder with the structs properties as table fields
+pub fn builder() -> Self {
+
+Self { select_fields : "".into() , fields : #insert_fields.to_string(), insert_values_fields :
+#insert_values_fields.to_string(), name : #the_real_table_name.to_string(), update_fields : #update_fields.to_string() }
+}
+}
+
+impl OrmRepository for #new_struct_name {
+
+/// Generates a SELECT struct_properties FROM table_name sql clause
+fn find(&self) -> String {
+
+if self.select_fields.is_empty() {
+
+return format!("SELECT {} FROM {}", self.fields, self.name)
+}
+
+format!("SELECT {} FROM {}", self.select_fields, self.name)
+
+
+}
+
+/// Generates a INSERT INTO table_name (properties) VALUES (placeholders) RETURNIN properties sql
+        /// clause
+fn create(&mut self) -> String {
+
+format!("INSERT INTO {} ({}) VALUES ({}) RETURNING {}", self.name, self.fields,
+self.insert_values_fields, self.fields)
+
+}
+
+
+///Generates a DELETE FROM table_name WHERE id = ${} RETURNIN properties sql clause
+fn delete(&self) -> String {
+
+format!("DELETE FROM {} WHERE id = $1 RETURNING {}", self.name, self.fields )
+
+}
+
+
+/// generates a UPDATE table_name SET property1 = $, ... WHERE id = $ sql clause
+fn update(&self) -> String {
+
+
+format!("UPDATE {} SET {}", self.name, self.update_fields)
+
+}
+
+/// Used to select specific properties, but its easier to make a Dto and derive OrmRepository
+        /// instead of using this
+fn select_fields(&mut self, fields : Vec<&str>) -> &mut Self {
+    for field in fields {
+
+    self.select_fields.push_str(field);
+
+    self.select_fields.push_str(", ");
 
     }
 
+    self.select_fields.pop();
+    self.select_fields.pop();
 
-    impl #new_struct_name {
-
-    pub fn builder() -> Self {
-
-    Self { select_fields : "".into() , fields : #insert_fields.to_string(), insert_values_fields :
-    #insert_values_fields.to_string(), name : #the_real_table_name.to_string(), update_fields : #update_fields.to_string() }
-    }
+    self
     }
 
-    impl OrmRepository for #new_struct_name {
-
-    fn find(&self) -> String {
-
-    if self.select_fields.is_empty() {
-
-    return format!("SELECT {} FROM {}", self.fields, #struct_name.to_string())
     }
-
-    format!("SELECT {} FROM {}", self.select_fields, #struct_name.to_string())
-
-
-    }
-
-    fn create(&mut self) -> String {
-
-    format!("INSERT INTO {} ({}) VALUES ({}) RETURNING {}", #struct_name.to_string(), self.fields,
-    self.insert_values_fields, self.fields)
-
-    }
-
-
-    fn delete(&self) -> String {
-
-    format!("DELETE FROM {} WHERE id = $1 RETURNING {}", #struct_name.to_string(), self.fields )
-
-    }
-
-    fn update(&self) -> String {
-
-    format!("UPDATE {} SET {}", self.name, self.update_fields)
-
-    }
-
-
-    fn select_fields(&mut self, fields : Vec<&str>) -> &mut Self {
-        for field in fields {
-
-        self.select_fields.push_str(field);
-
-        self.select_fields.push_str(", ");
-
-        }
-
-        self.select_fields.pop();
-        self.select_fields.pop();
-
-        self
-        }
-
-        }
 
     }.into()
-
 }
 
 trait SQLBuilder {
@@ -177,9 +183,10 @@ mod tests {
 
     #[test]
     fn extracts_table_name() {
-
         let attribute_from_struct = r#"table_name("table_name_extracted")"#;
-        assert_eq!("table_name_extracted", extract_string_atribute(attribute_from_struct.to_string()))
+        assert_eq!(
+            "table_name_extracted",
+            extract_string_atribute(attribute_from_struct.to_string())
+        )
     }
-
 }
