@@ -7,22 +7,24 @@ use utils::*;
 
 mod utils;
 
-
-struct StructData  {
-    fields : Vec<String>, 
-    struct_name : String
+struct StructData {
+    fields: Vec<String>,
+    struct_name: String,
 }
 
 impl StructData {
-    fn new(fields : Vec<String> , struct_name : String) -> Self { 
-        Self { fields, struct_name }
+    fn new(fields: Vec<String>, struct_name: String) -> Self {
+        Self {
+            fields,
+            struct_name,
+        }
     }
 }
 
 #[allow(dead_code)]
 #[proc_macro_derive(GetRepository, attributes(table_name))]
 pub fn get_repository(struc: TokenStream) -> TokenStream {
-    // this part is only concerned about extracting the data from the struct 
+    // this part is only concerned about extracting the data from the struct
     let input = parse_macro_input!(struc as DeriveInput);
 
     let attrs = input.attrs;
@@ -72,23 +74,21 @@ pub fn get_repository(struc: TokenStream) -> TokenStream {
     )
 }
 
-
-
-
 fn impl_repository(
     orm_struct_name: Ident,
-    fields: String,
+    mut fields: String,
     mut insert_values_fields: String,
     the_real_table_name: String,
 ) -> TokenStream {
 
-    if fields.contains("id") {
+
+    if fields.contains("id,") {
         insert_values_fields.pop();
         insert_values_fields.pop();
         insert_values_fields.pop();
+
     }
 
-    let fields = fields.replace("id,", "").to_string();
 
     let mut update_set = fields
         .split(',')
@@ -100,6 +100,12 @@ fn impl_repository(
 
     let where_clause_in_update_clause = update_set.split(',').count() + 1;
 
+    let returning_clause = if fields.contains("id") {
+        fields.replace("id,", "").to_string()
+    } else {
+        fields.clone()
+    };
+
     quote! {
 
     #[derive(Debug)]
@@ -109,6 +115,7 @@ fn impl_repository(
     select_fields : String,
     fields : String,
     insert_values_fields : String,
+    returning_clause : String,
 
     }
 
@@ -119,7 +126,7 @@ fn impl_repository(
     pub fn builder() -> Self {
 
     Self { select_fields : "".into() , fields : #fields.to_string(), insert_values_fields :
-    #insert_values_fields.to_string(), name : #the_real_table_name.to_string() }
+    #insert_values_fields.to_string(), name : #the_real_table_name.to_string() , returning_clause : #returning_clause.to_string()}
     }
     }
 
@@ -142,8 +149,8 @@ fn impl_repository(
     /// clause
     fn create(&mut self) -> String {
 
-    format!("INSERT INTO {} ({}) VALUES ({}) RETURNING id,{}", self.name, self.fields,
-    self.insert_values_fields, self.fields)
+    format!("INSERT INTO {} ({}) VALUES ({}) RETURNING id,{}", self.name, self.returning_clause,
+    self.insert_values_fields, self.returning_clause)
 
     }
 
@@ -151,7 +158,7 @@ fn impl_repository(
     ///Generates a DELETE FROM table_name WHERE id = ${} RETURNIN properties sql clause
     fn delete(&self) -> String {
 
-    format!("DELETE FROM {} WHERE id = $1 RETURNING id,{}", self.name, self.fields )
+    format!("DELETE FROM {} WHERE id = $1 RETURNING id,{}", self.name, self.returning_clause )
 
     }
 

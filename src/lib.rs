@@ -53,12 +53,28 @@ mod tests {
     }
 
     #[test]
+    fn find_method_build_select_sql_with_main() {
+        assert_eq!(
+            "SELECT id,title,description,others,another_property FROM entity",
+            EntityOrm::builder().find()
+        )
+    }
+
+    #[test]
     fn find_method_queries_specific_properties() {
         assert_eq!(
             "SELECT title, description FROM entity",
             EntityOrm::builder()
                 .select_fields(vec!["title", "description"])
                 .find()
+        )
+    }
+
+    #[test]
+    fn create_method_build_insert_sql_with_main_entity() {
+        assert_eq!(
+        "INSERT INTO entity (title,description,others,another_property) VALUES ($1,$2,$3,$4) RETURNING id,title,description,others,another_property", 
+        EntityOrm::builder().create()
         )
     }
 
@@ -70,13 +86,6 @@ mod tests {
         )
     }
 
-    #[test]
-    fn create_method_build_insert_sql_with_main_entity() {
-        assert_eq!(
-        "INSERT INTO entity (title,description,others,another_property) VALUES ($1,$2,$3,$4) RETURNING id,title,description,others,another_property",
-        EntityOrm::builder().create()
-        )
-    }
 
     #[test]
     fn delete_method_build_delete_sql() {
@@ -93,4 +102,5 @@ mod tests {
         EntityUpdateDtoOrm::builder().update()
         )
     }
+
 }
