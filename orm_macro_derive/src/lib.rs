@@ -7,9 +7,22 @@ use utils::*;
 
 mod utils;
 
+
+struct StructData  {
+    fields : Vec<String>, 
+    struct_name : String
+}
+
+impl StructData {
+    fn new(fields : Vec<String> , struct_name : String) -> Self { 
+        Self { fields, struct_name }
+    }
+}
+
 #[allow(dead_code)]
 #[proc_macro_derive(GetRepository, attributes(table_name))]
 pub fn get_repository(struc: TokenStream) -> TokenStream {
+    // this part is only concerned about extracting the data from the struct 
     let input = parse_macro_input!(struc as DeriveInput);
 
     let attrs = input.attrs;
@@ -23,7 +36,7 @@ pub fn get_repository(struc: TokenStream) -> TokenStream {
 
     let new_struct_name = format_ident!("{}Orm", struct_name_raw);
 
-    let mut insert_fields = String::new();
+    let mut fields = String::new();
 
     let mut insert_values_fields = String::new();
 
@@ -33,7 +46,8 @@ pub fn get_repository(struc: TokenStream) -> TokenStream {
         syn::Data::Struct(ref data) => {
             for (index, fieldname) in data.fields.iter().enumerate() {
                 let fieldname = fieldname.ident.as_ref().unwrap().to_string();
-                insert_fields.push_str(format!("{},", fieldname).as_str());
+
+                fields.push_str(format!("{},", fieldname).as_str());
 
                 let current_value = index + 1;
 
@@ -42,21 +56,24 @@ pub fn get_repository(struc: TokenStream) -> TokenStream {
                 update_fields.push_str(format!("{} = ${},", fieldname, current_value).as_str())
             }
 
-            insert_fields.pop();
-
+            fields.pop();
             insert_values_fields.pop();
             update_fields.pop();
         }
         _ => unimplemented!(),
     };
 
+    //This part is only concerned about having the structs's properties / data
     impl_repository(
         new_struct_name,
-        insert_fields,
+        fields,
         insert_values_fields,
         the_real_table_name,
     )
 }
+
+
+
 
 fn impl_repository(
     orm_struct_name: Ident,
@@ -64,6 +81,7 @@ fn impl_repository(
     mut insert_values_fields: String,
     the_real_table_name: String,
 ) -> TokenStream {
+
     if fields.contains("id") {
         insert_values_fields.pop();
         insert_values_fields.pop();
