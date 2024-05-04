@@ -10,4 +10,4 @@ license = "MIT"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-orm_macro_derive = { version="1.0.0",  path = "orm_macro_derive" }
+orm_macro_derive = { version="1.0.1",  path = "orm_macro_derive" }
