@@ -12,7 +12,6 @@ pub trait OrmRepository {
 #[cfg(test)]
 mod tests {
 
-
     use crate::OrmRepository;
 
     #[derive(Default, orm_macro_derive::GetRepository)]
@@ -65,8 +64,6 @@ mod tests {
         )
     }
 
-
-
     #[test]
     fn update_method_builds_sql() {
         assert_eq!(
@@ -74,7 +71,4 @@ mod tests {
             EntityUpdateDtoOrm::builder().update()
         )
     }
-
-    
 }
-
