@@ -8,12 +8,15 @@ pub trait OrmRepository {
     fn delete(&self) -> String;
 }
 
+#[allow(dead_code)]
 #[cfg(test)]
 mod tests {
+
 
     use crate::OrmRepository;
 
     #[derive(Default, orm_macro_derive::GetRepository)]
+    #[table_name("entity")]
     struct Entity {
         id: i64,
         title: String,
@@ -22,16 +25,17 @@ mod tests {
     }
 
     #[derive(Default, orm_macro_derive::GetRepository)]
+    #[table_name("entity")]
     struct EntityUpdateDto {
-        title : String,
-        description : String
+        title: String,
+        description: String,
     }
 
     #[test]
     fn find_method_return_select() {
         assert_eq!(
             "SELECT id,title,description,others FROM entity",
-            EntityOrmRepository::builder().find()
+            EntityOrm::builder().find()
         )
     }
 
@@ -39,7 +43,7 @@ mod tests {
     fn find_method_queries_specific_struct_properties() {
         assert_eq!(
             "SELECT title, description FROM entity",
-            EntityOrmRepository::builder()
+            EntityOrm::builder()
                 .select_fields(vec!["title", "description"])
                 .find()
         )
@@ -48,8 +52,8 @@ mod tests {
     #[test]
     fn create_method_build_sql() {
         assert_eq!(
-            "INSERT INTO entity (id,title,description,others) VALUES ($1,$2,$3,$4) RETURNING id,title,description,others",
-            EntityOrmRepository::builder().create()
+        "INSERT INTO entity (id,title,description,others) VALUES ($1,$2,$3,$4) RETURNING id,title,description,others",
+        EntityOrm::builder().create()
         )
     }
 
@@ -57,25 +61,20 @@ mod tests {
     fn delete_method_build_sql() {
         assert_eq!(
             "DELETE FROM entity WHERE id = $1 RETURNING id,title,description,others",
-            EntityOrmRepository::builder().delete()
+            EntityOrm::builder().delete()
         )
     }
 
+
+
     #[test]
     fn update_method_builds_sql() {
-        assert_eq!("UPDATE entity SET title = $1,description = $2 WHERE, id = $3", 
-        EntityUpdateDtoOrmRepository::builder().update()
-    )
+        assert_eq!(
+            "UPDATE entity SET title = $1,description = $2 WHERE id = $3",
+            EntityUpdateDtoOrm::builder().update()
+        )
     }
 
-    // #[test]
-    // fn find_method_queries_with_where_clause() {
-    // let entity = Entity::default();
-    // assert_eq!(
-    // "SELECT * FROM entity where title = something",
-    // entity.find(FindOptions {
-    // whereOptions: WhereOptions { title: "something" }
-    // })
-    // )
-    // }
+    
 }
+
