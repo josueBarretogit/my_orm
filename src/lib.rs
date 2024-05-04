@@ -21,7 +21,7 @@ mod tests {
         title: String,
         description: String,
         others: Vec<u32>,
-        another_property:  bool
+        another_property: bool,
     }
 
     #[derive(Default, orm_macro_derive::GetRepository)]
@@ -43,7 +43,6 @@ mod tests {
     struct EntityCreateDto {
         description: String,
     }
-
 
     #[test]
     fn find_method_build_select_sql() {
@@ -72,18 +71,26 @@ mod tests {
     }
 
     #[test]
+    fn create_method_build_insert_sql_with_main_entity() {
+        assert_eq!(
+        "INSERT INTO entity (title,description,others,another_property) VALUES ($1,$2,$3,$4) RETURNING id,title,description,others,another_property",
+        EntityOrm::builder().create()
+        )
+    }
+
+    #[test]
     fn delete_method_build_delete_sql() {
         assert_eq!(
-            "DELETE FROM entity WHERE id = $1 RETURNING id,title,description,others,another_property",
-            EntityOrm::builder().delete()
+        "DELETE FROM entity WHERE id = $1 RETURNING id,title,description,others,another_property",
+        EntityOrm::builder().delete()
         )
     }
 
     #[test]
     fn update_method_builds_sql() {
         assert_eq!(
-            "UPDATE entity SET title = $1,description = $2 WHERE id = $3 RETURNING id,title,description",
-            EntityUpdateDtoOrm::builder().update()
+        "UPDATE entity SET title = $1,description = $2 WHERE id = $3 RETURNING id,title,description",
+        EntityUpdateDtoOrm::builder().update()
         )
     }
 }

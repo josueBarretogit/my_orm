@@ -32,9 +32,11 @@ pub fn get_repository(struc: TokenStream) -> TokenStream {
     match input.data {
         syn::Data::Struct(ref data) => {
             for (index, fieldname) in data.fields.iter().enumerate() {
-                let current_value = index + 1;
                 let fieldname = fieldname.ident.as_ref().unwrap().to_string();
                 insert_fields.push_str(format!("{},", fieldname).as_str());
+
+                let current_value = index + 1;
+
                 insert_values_fields.push_str(format!("${},", current_value).as_str());
 
                 update_fields.push_str(format!("{} = ${},", fieldname, current_value).as_str())
@@ -59,9 +61,17 @@ pub fn get_repository(struc: TokenStream) -> TokenStream {
 fn impl_repository(
     orm_struct_name: Ident,
     fields: String,
-    insert_values_fields: String,
+    mut insert_values_fields: String,
     the_real_table_name: String,
 ) -> TokenStream {
+    if fields.contains("id") {
+        insert_values_fields.pop();
+        insert_values_fields.pop();
+        insert_values_fields.pop();
+    }
+
+    let fields = fields.replace("id,", "").to_string();
+
     let mut update_set = fields
         .split(',')
         .enumerate()
@@ -123,7 +133,7 @@ fn impl_repository(
     ///Generates a DELETE FROM table_name WHERE id = ${} RETURNIN properties sql clause
     fn delete(&self) -> String {
 
-    format!("DELETE FROM {} WHERE id = $1 RETURNING {}", self.name, self.fields )
+    format!("DELETE FROM {} WHERE id = $1 RETURNING id,{}", self.name, self.fields )
 
     }
 
