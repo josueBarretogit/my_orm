@@ -39,13 +39,13 @@ pub struct BooksCreateDto {
 pub struct BookRepository {}
 
 impl BookRepository {
-    async fn update(&self, description : String) -> Result<Vec<Books>, sqlx::Error> {
+    async fn update(&self, body : BooksUpdateDto) -> Result<Vec<Books>, sqlx::Error> {
 
         /// this would generate: UPDATE books SET description = $1 WHERE id = $2 RETURNING id, description
         let sql =  BooksUpdateDtoOrm::builder().update();
 
         let db_response = sqlx::query_as(sql.as_str())
-        .bind(description)
+        .bind(body.description)
         .fetch_all(&*self.db)
         .await?;
 
@@ -54,14 +54,15 @@ impl BookRepository {
     }
 
 
-     async fn create(&self, data : ) -> Result<Vec<Books>, sqlx::Error> {
+     async fn create(&self, body : BooksCreateDto) -> Result<Vec<Books>, sqlx::Error> {
 
         /// this would generate: INSERT INTO books (title,description) VALUES($1,$2) RETURNING id,title,description
         let sql =  BooksCreateDtoOrm::builder().create();
 
         let db_response = sqlx::query_as(sql.as_str())
-        .bind(description)
-        .fetch_all(&*self.db)
+        .bind(body.title)
+        .bind(body.description)
+        .fetch_one(&*self.db)
         .await?;
 
 
@@ -69,14 +70,14 @@ impl BookRepository {
     }
 
 
-    async fn delete(&self, data : ) -> Result<Vec<Books>, sqlx::Error> {
+    async fn delete(&self,  id: i64 ) -> Result<Vec<Books>, sqlx::Error> {
 
         /// this would generate: DELETE FROM books WHERE id = $1  RETURNING id,title,description,author_name
         let sql =  BooksOrm::builder().delete();
 
         let db_response = sqlx::query_as(sql.as_str())
-        .bind(description)
-        .fetch_all(&*self.db)
+        .bind(id)
+        .fetch_one(&*self.db)
         .await?;
 
 
