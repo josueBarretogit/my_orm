@@ -1,10 +1,19 @@
 extern crate orm_macro_derive;
 
+///This trait contains the methods that generate sql
 pub trait OrmRepository {
+    /// generate: SELECT {struct_fields} from {table_name}
     fn find(&self) -> String;
+    ///Used to specify which fields to select
     fn select_fields(&mut self, fields: Vec<&str>) -> &mut Self;
+
+    /// generate: INSERT INTO {table_name} ({struct_fields}) VALUES({$1,$2...}) RETURNING
+    /// {struct_fields}
     fn create(&mut self) -> String;
+    /// generate: UPDATE {table_name} SET struct_field1 = $1 , WHERE id = $2 RETURNING {struct_fields}
+    /// {struct_fields}
     fn update(&self) -> String;
+    ///generates: DELETE FROM {table_name} WHERE id = $1 RETURNING {struct_fields}
     fn delete(&self) -> String;
 }
 
