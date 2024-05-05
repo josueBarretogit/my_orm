@@ -7,16 +7,19 @@ use utils::*;
 
 mod utils;
 
+#[derive(Debug)]
 struct StructData {
     fields: Vec<String>,
-    struct_name: String,
+    table_name: String,
+    struct_name: Ident,
 }
 
 impl StructData {
-    fn new(fields: Vec<String>, struct_name: String) -> Self {
+    fn new(fields: Vec<String>, struct_name: Ident, table_name: String) -> Self {
         Self {
             fields,
             struct_name,
+            table_name,
         }
     }
 }
@@ -29,202 +32,101 @@ pub fn get_repository(struc: TokenStream) -> TokenStream {
 
     let attrs = input.attrs;
 
-    let the_real_table_name = attrs.iter().last().unwrap();
+    let table_name = attrs.iter().last().unwrap();
 
-    let the_real_table_name =
-        extract_string_atribute(the_real_table_name.to_token_stream().to_string());
+    let table_name = extract_string_atribute(table_name.to_token_stream().to_string());
 
     let struct_name_raw = &input.ident;
 
     let new_struct_name = format_ident!("{}Orm", struct_name_raw);
 
-    let mut fields = String::new();
-
-    let mut insert_values_fields = String::new();
-
-    let mut update_fields = String::new();
-
-    match input.data {
-        syn::Data::Struct(ref data) => {
-            for (index, fieldname) in data.fields.iter().enumerate() {
-                let fieldname = fieldname.ident.as_ref().unwrap().to_string();
-
-                fields.push_str(format!("{},", fieldname).as_str());
-
-                let current_value = index + 1;
-
-                insert_values_fields.push_str(format!("${},", current_value).as_str());
-
-                update_fields.push_str(format!("{} = ${},", fieldname, current_value).as_str())
-            }
-
-            fields.pop();
-            insert_values_fields.pop();
-            update_fields.pop();
-        }
+    let fields: Vec<String> = match input.data {
+        syn::Data::Struct(ref data) => data
+            .fields
+            .iter()
+            .map(|field| field.ident.as_ref().unwrap().to_string())
+            .collect(),
         _ => unimplemented!(),
     };
 
     //This part is only concerned about having the structs's properties / data
-    impl_repository(
-        new_struct_name,
-        fields,
-        insert_values_fields,
-        the_real_table_name,
-    )
+    impl_repository(StructData::new(fields, new_struct_name, table_name))
 }
 
-fn impl_repository(
-    orm_struct_name: Ident,
-    mut fields: String,
-    mut insert_values_fields: String,
-    the_real_table_name: String,
-) -> TokenStream {
+fn impl_repository(struc_data: StructData) -> TokenStream {
+    let orm_struct_name = struc_data.struct_name;
 
+    let mut select_builder = SelectStatement::new(&struc_data.fields, &struc_data.table_name);
 
-    if fields.contains("id,") {
-        insert_values_fields.pop();
-        insert_values_fields.pop();
-        insert_values_fields.pop();
+    let mut update_builder = UpdateStatement::new(&struc_data.fields, &struc_data.table_name);
 
-    }
+    let mut delete_builder = DeleteStatement::new(&struc_data.table_name, WhereClause::new());
 
+    let mut insert_builder = InsertStatement::new(&struc_data.table_name, &struc_data.fields);
 
-    let mut update_set = fields
-        .split(',')
-        .enumerate()
-        .map(|(index, value)| format!("{} = ${},", value, index + 1))
-        .collect::<String>();
-
-    update_set.pop();
-
-    let where_clause_in_update_clause = update_set.split(',').count() + 1;
-
-    let returning_clause = if fields.contains("id") {
-        fields.replace("id,", "").to_string()
-    } else {
-        fields.clone()
-    };
+    let select_statement = select_builder.build_sql();
+    let update_statement = update_builder.build_sql().to_token_stream();
+    let delete_statement = delete_builder.build_sql();
+    let insert_statement = insert_builder.build_sql();
 
     quote! {
 
     #[derive(Debug)]
-    pub struct #orm_struct_name {
-
-    name : String,
-    select_fields : String,
-    fields : String,
-    insert_values_fields : String,
-    returning_clause : String,
-
-    }
+    pub struct #orm_struct_name {}
 
 
     impl #orm_struct_name {
 
     ///Instanciates a new OrmRepository builder with the structs properties as table fields
     pub fn builder() -> Self {
-
-    Self { select_fields : "".into() , fields : #fields.to_string(), insert_values_fields :
-    #insert_values_fields.to_string(), name : #the_real_table_name.to_string() , returning_clause : #returning_clause.to_string()}
+    Self {}
     }
+
     }
 
     impl OrmRepository for #orm_struct_name {
 
     /// Generates a SELECT struct_properties FROM table_name sql clause
-    fn find(&self) -> String {
+    fn find(&self) -> &str {
 
-    if self.select_fields.is_empty() {
-
-    return format!("SELECT {} FROM {}", self.fields, self.name)
-    }
-
-    format!("SELECT {} FROM {}", self.select_fields, self.name)
+    #select_statement
 
 
     }
 
     /// Generates a INSERT INTO table_name (properties) VALUES (placeholders) RETURNIN properties sql
     /// clause
-    fn create(&mut self) -> String {
+    fn create(&mut self) -> &str {
 
-    format!("INSERT INTO {} ({}) VALUES ({}) RETURNING id,{}", self.name, self.returning_clause,
-    self.insert_values_fields, self.returning_clause)
+    #insert_statement
 
     }
 
 
     ///Generates a DELETE FROM table_name WHERE id = ${} RETURNIN properties sql clause
-    fn delete(&self) -> String {
+    fn delete(&self) -> &str {
 
-    format!("DELETE FROM {} WHERE id = $1 RETURNING id,{}", self.name, self.returning_clause )
+
+    #delete_statement
 
     }
 
 
     /// generates a UPDATE table_name SET property1 = $, ... WHERE id = $ sql clause
-    fn update(&self) -> String {
+    fn update(&self) -> &str {
 
 
-    format!("UPDATE {} SET {} WHERE id = ${} RETURNING id,{}", self.name, #update_set.to_string(),
-    #where_clause_in_update_clause.to_string(), self.fields)
+    #update_statement
 
     }
 
-    /// Used to select specific properties, but its easier to make a Dto and derive OrmRepository
-    /// instead of using this
-    fn select_fields(&mut self, fields : Vec<&str>) -> &mut Self {
-        for field in fields {
 
-        self.select_fields.push_str(field);
 
-        self.select_fields.push_str(", ");
 
-        }
+    }
 
-        self.select_fields.pop();
-        self.select_fields.pop();
-
-        self
-        }
-
-        }
-
-        }
+    }
     .into()
-}
-
-trait SQLBuilder {
-    fn set_table_name(&mut self, entity_name: &str) -> &mut Self;
-    fn generate_simple_select_statement(&self) -> String;
-    fn generate_select_statement_with_fields(&self, field: Vec<&str>) -> String;
-}
-
-#[derive(Default)]
-struct MysqlBuilder {
-    table_name: String,
-}
-
-impl SQLBuilder for MysqlBuilder {
-    fn set_table_name(&mut self, entity_name: &str) -> &mut Self {
-        self.table_name = entity_name.to_string();
-        self
-    }
-
-    fn generate_select_statement_with_fields(&self, fields: Vec<&str>) -> String {
-        let mut select_statement = String::from("SELECT ");
-        for field in fields {
-            select_statement.push_str(field);
-        }
-        select_statement.push_str("FROM ");
-        select_statement.push_str(&self.table_name);
-        select_statement
-    }
-
-    fn generate_simple_select_statement(&self) -> String {
-        format!("SELECT * FROM {}", self.table_name)
-    }
 }
 
 #[cfg(test)]
