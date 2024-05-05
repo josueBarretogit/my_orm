@@ -19,7 +19,7 @@ pub struct SelectStatement {
 pub struct UpdateStatement {
     set_fields: Vec<String>,
     update_table_name: String,
-    where_clause: Option<WhereClause>,
+    where_clause: WhereClause,
     returning_clause: Option<ReturningClause>,
 }
 
@@ -43,6 +43,21 @@ pub struct WhereClause {
 pub struct ReturningClause {
     fields: Vec<String>,
 }
+impl ReturningClause {
+    pub fn new(fields : &Vec<String>) -> Self {
+        Self { fields : fields.to_owned() }
+    }
+}
+
+impl SqlBuilder for ReturningClause {
+    fn build_sql(self) -> String {
+        let mut fields : String = self.fields.iter().map(|field| format!("{},", field)).collect();
+        fields.pop();
+        
+        format!("RETURNING {}", fields)
+    }
+}
+
 
 impl SelectStatement {
     pub fn set_where(&mut self, where_clause: WhereClause) -> &mut Self {
@@ -95,24 +110,57 @@ impl WhereClause {
 
 impl SqlBuilder for WhereClause {
     fn build_sql(self) -> String {
-        format!("WHERE ")
+        let conditions : String = self.conditions.iter().map(|cond| cond.to_string()).collect();
+        format!("WHERE {}", conditions)
     }
 }
 
 impl UpdateStatement {
-    pub fn new(set_fields: &Vec<String>, update_table_name: &str) -> Self {
+    pub fn new(set_fields: &Vec<String>, update_table_name: &str, where_clause : WhereClause) -> Self {
         Self {
             set_fields: set_fields.to_owned(),
             update_table_name: update_table_name.to_owned(),
-            where_clause: None,
+            where_clause,
             returning_clause: None,
         }
+    }
+    pub fn set_where(&mut self, conditions : Vec<String>) -> &mut Self {
+        self.where_clause.set_conditions(conditions);
+        self
+    }
+    pub fn set_returning_clause(&mut self, returning_clause: ReturningClause) -> &mut Self {
+        self.returning_clause  = Some(returning_clause);
+        self
+
     }
 }
 
 impl SqlBuilder for UpdateStatement {
-    fn build_sql(self) -> String {
-        format!("UPDATE ")
+    fn build_sql(mut self) -> String {
+        let fields_without_id = self.set_fields.iter().filter(|field| *field != "id");
+
+        let mut set_fields = String::new();
+    
+        let mut where_id  = String::new();
+
+        fields_without_id.clone().enumerate().for_each(|(index, field)| {
+             set_fields.push_str(format!("{} = ${},",field, index + 1).as_str());
+        });
+
+        set_fields.pop();
+
+        where_id.push_str(format!("id = ${}", fields_without_id.count() + 1).as_str());
+
+        self.set_where(vec![where_id]);
+
+        let returning_clause = if self.returning_clause.is_some() {
+            self.returning_clause.unwrap().build_sql()
+        } else {
+            "".into()
+        };
+
+ 
+        format!("UPDATE {} SET {} {} {}", self.update_table_name, set_fields, self.where_clause.build_sql(), returning_clause)
     }
 }
 

@@ -69,8 +69,7 @@ mod tests {
     #[test]
     fn create_method_build_insert_sql_with_main_entity() {
         assert_eq!(
-    "INSERT INTO entity (title,description,others,another_property) VALUES ($1,$2,$3,$4) RETURNING
-    id,title,description,others,another_property",
+    "INSERT INTO entity (title,description,others,another_property) VALUES ($1,$2,$3,$4) RETURNING id,title,description,others,another_property",
     EntityOrm::builder().create()
     )
     }
@@ -102,8 +101,7 @@ mod tests {
     #[test]
     fn update_method_builds_sql_with_main() {
         assert_eq!(
-    "UPDATE entity SET title = $1,description = $2,others = $3, another_property = $4 WHERE id = $5 RETURNING
-    id,title,description,others,another_property",
+    "UPDATE entity SET title = $1,description = $2,others = $3,another_property = $4 WHERE id = $5 RETURNING id,title,description,others,another_property",
     EntityOrm::builder().update()
     )
     }

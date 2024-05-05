@@ -58,16 +58,57 @@ fn impl_repository(struc_data: StructData) -> TokenStream {
 
     let mut select_builder = SelectStatement::new(&struc_data.fields, &struc_data.table_name);
 
-    let mut update_builder = UpdateStatement::new(&struc_data.fields, &struc_data.table_name);
+    let mut update_builder = UpdateStatement::new(&struc_data.fields, &struc_data.table_name, WhereClause::new());
+
+    update_builder.set_returning_clause(ReturningClause::new(&struc_data.fields));
 
     let mut delete_builder = DeleteStatement::new(&struc_data.table_name, WhereClause::new());
 
     let mut insert_builder = InsertStatement::new(&struc_data.table_name, &struc_data.fields);
 
     let select_statement = select_builder.build_sql();
-    let update_statement = update_builder.build_sql().to_token_stream();
+    let update_statement = update_builder.build_sql();
     let delete_statement = delete_builder.build_sql();
     let insert_statement = insert_builder.build_sql();
+
+
+    let find_method = quote! {
+        /// Generates a SELECT struct_properties FROM table_name sql clause
+        fn find(&self) -> &str {
+            #select_statement
+        }
+    };
+
+    let create_method = quote! {
+
+        /// Generates a INSERT INTO table_name (properties) VALUES (placeholders) RETURNIN properties sql
+        /// clause
+        fn create(&mut self) -> &str {
+
+            #insert_statement
+
+        }
+
+    };
+
+
+    let update_method = quote! {
+        /// generates a UPDATE table_name SET property1 = $, ... WHERE id = $ sql clause
+        fn update(&self) -> &str {
+            #update_statement
+        }
+    };
+
+    let delete_method = quote! { 
+
+        ///Generates a DELETE FROM table_name WHERE id = ${} RETURNIN properties sql clause
+        fn delete(&self) -> &str {
+
+
+        #delete_statement
+
+        }
+    };
 
     quote! {
 
@@ -77,50 +118,22 @@ fn impl_repository(struc_data: StructData) -> TokenStream {
 
     impl #orm_struct_name {
 
-    ///Instanciates a new OrmRepository builder with the structs properties as table fields
-    pub fn builder() -> Self {
-    Self {}
-    }
+        ///Instanciates a new OrmRepository builder with the structs properties as table fields
+        pub fn builder() -> Self {
+            Self {}
+        }
 
     }
 
     impl OrmRepository for #orm_struct_name {
 
-    /// Generates a SELECT struct_properties FROM table_name sql clause
-    fn find(&self) -> &str {
+        #find_method
 
-    #select_statement
+        #create_method
 
+        #delete_method
 
-    }
-
-    /// Generates a INSERT INTO table_name (properties) VALUES (placeholders) RETURNIN properties sql
-    /// clause
-    fn create(&mut self) -> &str {
-
-    #insert_statement
-
-    }
-
-
-    ///Generates a DELETE FROM table_name WHERE id = ${} RETURNIN properties sql clause
-    fn delete(&self) -> &str {
-
-
-    #delete_statement
-
-    }
-
-
-    /// generates a UPDATE table_name SET property1 = $, ... WHERE id = $ sql clause
-    fn update(&self) -> &str {
-
-
-    #update_statement
-
-    }
-
-
+        #update_method
 
 
     }
