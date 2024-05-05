@@ -10,7 +10,8 @@ Currently this only supports postgres
 use orm_macro::OrmRepository;
 use orm_macro_derive::GetRepository;
 
-//GetRepository will make a new struct with functions mapped to the struct
+//GetRepository will make a new struct with methods that 
+//build sql statements using your struct fields
 //The new struct will be named struct_nameOrm
 #[derive(Debug, Default, GetRepository)]
 #[table_name("books")]
