@@ -3,6 +3,8 @@ sometimes you just want a quick, easy to use sql statement that matches your str
 
 Currently this only supports postgres
 
+## Usage examples
+
 ```rust
 
 use orm_macro::OrmRepository;
@@ -27,7 +29,6 @@ pub struct BooksUpdateDto {
 }
 
 
-// works really well with Dto's
 #[derive(Debug, Default, GetRepository)]
 #[table_name("books")]
 pub struct BooksCreateDto {
