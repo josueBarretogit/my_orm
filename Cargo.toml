@@ -1,6 +1,6 @@
 [package]
 name = "orm_macro"
-version = "1.2.0"
+version = "1.2.1"
 edition = "2021"
 authors = ["Josue <josuebarretogit@gmail.com>"]
 repository = "https://github.com/josueBarretogit/my_orm"
@@ -11,12 +11,7 @@ license = "MIT"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+
 [dependencies]
-orm_macro_derive = { version="1.2.0",  path = "orm_macro_derive" }
+orm_macro_derive = { version="1.2.1",  path = "./orm_macro_derive/" }
 
-
-[features]
-default = ["postgres"]
-postgres = []
-mysql = []
-sqlite = []

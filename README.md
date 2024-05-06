@@ -16,19 +16,19 @@ changes, well this crate is for you
 
 put this in your cargo.toml: 
 ```rust 
-orm_macro = version = "1.2.0"
-orm_macro_derive =  version = "1.2.0" 
+orm_macro = "1.2.1"
+orm_macro_derive = { version = "1.2.1", features = ["postgres"] }  
 ```
 
-The feature flag enabled by default is "postgres" which uses postgres style bindings, for example: 
+The feature flag  "postgres"  uses postgres style bindings, for example: 
 ```sql
 DELETE FROM table WHERE id = $1 # postgres bindings
 DELETE FROM table WHERE id = ? # this bindings are used by mysql and sqlite
 ```
 If you want to use mysql bindings then in your cargo.toml
 ```rust
-orm_macro = { version = "1.2.0", features = ["mysql"] }
-orm_macro_derive = { version = "1.2.0", features = ["mysql"] } 
+orm_macro =  "1.2.1"
+orm_macro_derive = { version = "1.2.1", features = ["mysql"] } 
 ```
 
 ## Usage
