@@ -61,7 +61,13 @@ fn impl_repository(struc_data: StructData) -> TokenStream {
 
     
     let mut update_where_condition  = String::new();
+
+    #[cfg(feature = "postgres")]
     update_where_condition.push_str(format!("id = ${}", fields_ignoring_id.len() + 1).as_str());
+
+
+    #[cfg(not(feature = "postgres"))]
+    update_where_condition.push_str("id = ?");
 
 
     let mut update_builder = UpdateStatement::new(&struc_data.table_name, WhereClause::new());
@@ -70,7 +76,7 @@ fn impl_repository(struc_data: StructData) -> TokenStream {
         .set_where(vec![update_where_condition])
         .set_returning_clause(ReturningClause::new(&fields_ignoring_id));
 
-    let mut select_builder = SelectStatement::new(&struc_data.fields, &struc_data.table_name);
+    let select_builder = SelectStatement::new(&struc_data.fields, &struc_data.table_name);
 
     let mut delete_builder = DeleteStatement::new(&struc_data.table_name, WhereClause::new());
 
@@ -80,24 +86,25 @@ fn impl_repository(struc_data: StructData) -> TokenStream {
     let mut insert_builder = InsertStatement::new(&struc_data.table_name, &fields_ignoring_id, fields_ignoring_id.clone());
 
     insert_builder.set_returning_clause(ReturningClause::new(&fields_ignoring_id));
-
+    
     let select_statement = select_builder.build_sql();
     let update_statement = update_builder.build_sql();
     let delete_statement = delete_builder.build_sql();
     let insert_statement = insert_builder.build_sql();
 
 
+    let find_method_docs = format!("Generates this sql: {}", select_statement);
     let find_method = quote! {
-        /// Generates a SELECT struct_properties FROM table_name sql clause
+        #[doc = #find_method_docs]
         fn find(&self) -> &str {
             #select_statement
         }
     };
 
+    let create_method_docs = format!("Generates this sql: {}", insert_statement);
     let create_method = quote! {
 
-        /// Generates a INSERT INTO table_name (properties) VALUES (placeholders) RETURNIN properties sql
-        /// clause
+        #[doc = #create_method_docs]
         fn create(&mut self) -> &str {
 
             #insert_statement
@@ -107,16 +114,18 @@ fn impl_repository(struc_data: StructData) -> TokenStream {
     };
 
 
+    let update_method_docs = format!("Generates this sql: {}", update_statement);
     let update_method = quote! {
-        /// generates a UPDATE table_name SET property1 = $, ... WHERE id = $ sql clause
+        #[doc = #update_method_docs]
         fn update(&self) -> &str {
             #update_statement
         }
     };
 
+    let delete_method_docs = format!("Generates the following sql: {}", delete_statement);
     let delete_method = quote! { 
 
-        ///Generates a DELETE FROM table_name WHERE id = ${} RETURNIN properties sql clause
+        #[doc = #delete_method_docs]
         fn delete(&self) -> &str {
 
 

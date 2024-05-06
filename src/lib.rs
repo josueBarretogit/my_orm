@@ -66,6 +66,7 @@ mod tests {
         )
     }
 
+    #[cfg(feature = "postgres")]
     #[test]
     fn create_method_build_insert_sql_with_main_entity() {
         assert_eq!(
@@ -74,6 +75,17 @@ mod tests {
     )
     }
 
+    #[cfg(not(feature = "postgres"))]
+    #[test]
+    fn create_method_build_insert_sql_with_main_entity_mysql_bindings() {
+        assert_eq!(
+    "INSERT INTO entity (title,description,others,another_property) VALUES (?,?,?,?) RETURNING id,title,description,others,another_property",
+    EntityOrm::builder().create()
+    )
+    }
+
+
+    #[cfg(feature = "postgres")]
     #[test]
     fn create_method_build_insert_sql() {
         assert_eq!(
@@ -82,6 +94,18 @@ mod tests {
         )
     }
 
+
+    #[cfg(not(feature = "postgres"))]
+    #[test]
+    fn create_method_build_insert_mysql_bindings() {
+        assert_eq!(
+            "INSERT INTO entity (description) VALUES (?) RETURNING id,description",
+            EntityCreateDtoOrm::builder().create()
+        )
+    }
+
+
+    #[cfg(feature = "postgres")]
     #[test]
     fn delete_method_build_delete_sql() {
         assert_eq!(
@@ -90,14 +114,39 @@ mod tests {
     )
     }
 
+    #[cfg(not(feature = "postgres"))]
+    #[test]
+    fn delete_method_build_delete_sql_mysql_bindings() {
+        assert_eq!(
+    "DELETE FROM entity WHERE id = ? RETURNING id,title,description,others,another_property",
+    EntityOrm::builder().delete()
+    )
+    }
+
+
+    #[cfg(feature = "postgres")]
     #[test]
     fn update_method_builds_sql() {
         assert_eq!(
     "UPDATE entity SET title = $1,description = $2 WHERE id = $3 RETURNING id,title,description",
     EntityUpdateDtoOrm::builder().update()
     )
+
     }
 
+    #[cfg(not(feature = "postgres"))]
+    #[test]
+    fn update_method_builds_sql_mysql_bindings() {
+        assert_eq!(
+    "UPDATE entity SET title = ?,description = ? WHERE id = ? RETURNING id,title,description",
+    EntityUpdateDtoOrm::builder().update()
+    )
+    }
+
+
+
+
+    #[cfg(feature = "postgres")]
     #[test]
     fn update_method_builds_sql_with_main() {
         assert_eq!(
@@ -105,4 +154,14 @@ mod tests {
     EntityOrm::builder().update()
     )
     }
+
+    #[cfg(not(feature = "postgres"))]
+    #[test]
+    fn test_update_query_with_mysql_binding() {
+        assert_eq!(
+    "UPDATE entity SET title = ?,description = ?,others = ?,another_property = ? WHERE id = ? RETURNING id,title,description,others,another_property",
+        EntityOrm::builder().update()
+    )
+    }
+
 }
