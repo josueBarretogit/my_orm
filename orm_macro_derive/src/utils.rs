@@ -17,10 +17,51 @@ pub struct SelectStatement {
 }
 
 pub struct UpdateStatement {
-    set_fields: Vec<String>,
+    set_fields: String,
     update_table_name: String,
     where_clause: WhereClause,
     returning_clause: Option<ReturningClause>,
+}
+
+impl UpdateStatement {
+    pub fn new(update_table_name: &str, where_clause : WhereClause) -> Self {
+        Self {
+            set_fields: String::new(),
+            update_table_name: update_table_name.to_owned(),
+            where_clause,
+            returning_clause: None,
+        }
+    }
+
+    pub fn set_where(&mut self, conditions : Vec<String>) -> &mut Self {
+        self.where_clause.set_conditions(conditions);
+        self
+    }
+
+    pub fn set_returning_clause(&mut self, returning_clause: ReturningClause) -> &mut Self {
+        self.returning_clause  = Some(returning_clause);
+        self
+    }
+
+    pub fn set_fields(&mut self, fields : Vec<String>) -> &mut Self { 
+        self.set_fields  = fields.iter().enumerate().map(|(index, field)| format!("{} = ${},",  field, index + 1)).collect();
+        self.set_fields.pop();
+        self
+    }
+
+}
+
+impl SqlBuilder for UpdateStatement {
+    fn build_sql(self) -> String {
+
+        let returning_clause = if self.returning_clause.is_some() {
+            self.returning_clause.unwrap().build_sql()
+        } else {
+            "".into()
+        };
+
+        format!("UPDATE {} SET {} {} {}", self.update_table_name, self.set_fields, self.where_clause.build_sql(), returning_clause)
+    }
 }
 
 pub struct InsertStatement {
@@ -28,6 +69,53 @@ pub struct InsertStatement {
     insert_fields: Vec<String>,
     values: Vec<String>,
     returning_clause: Option<ReturningClause>,
+}
+
+impl InsertStatement {
+
+    pub fn new(table_name: &str, insert_fields: &Vec<String>, values : Vec<String>) -> Self {
+        Self {
+            table_name: table_name.to_owned(),
+            insert_fields: insert_fields.to_owned(),
+            values,
+            returning_clause: None,
+        }
+    }
+
+
+
+    pub fn set_returning_clause(&mut self, returning_clause : ReturningClause) -> &mut Self {
+        self.returning_clause = Some(returning_clause);
+        self
+    }
+}
+
+impl SqlBuilder for InsertStatement {
+    fn build_sql(self) -> String {
+
+        let mut fields_to_insert = String::new(); 
+        let mut values_to_insert = String::new(); 
+
+        self.insert_fields.iter().enumerate().for_each(|(index, field)| {
+
+            fields_to_insert.push_str(format!("{},", field).as_str());
+            values_to_insert.push_str(format!("${},", index + 1).as_str());
+
+        });
+
+        fields_to_insert.pop();
+        values_to_insert.pop();
+
+        
+        let returning_clause = if self.returning_clause.is_some() {
+            self.returning_clause.unwrap().build_sql()
+        } else {
+            "".into()
+        };
+
+
+        format!("INSERT INTO {} ({}) VALUES ({}) {}", self.table_name, fields_to_insert, values_to_insert, returning_clause)
+    }
 }
 
 pub struct DeleteStatement {
@@ -54,7 +142,7 @@ impl SqlBuilder for ReturningClause {
         let mut fields : String = self.fields.iter().map(|field| format!("{},", field)).collect();
         fields.pop();
         
-        format!("RETURNING {}", fields)
+        format!("RETURNING id,{}", fields)
     }
 }
 
@@ -115,54 +203,7 @@ impl SqlBuilder for WhereClause {
     }
 }
 
-impl UpdateStatement {
-    pub fn new(set_fields: &Vec<String>, update_table_name: &str, where_clause : WhereClause) -> Self {
-        Self {
-            set_fields: set_fields.to_owned(),
-            update_table_name: update_table_name.to_owned(),
-            where_clause,
-            returning_clause: None,
-        }
-    }
-    pub fn set_where(&mut self, conditions : Vec<String>) -> &mut Self {
-        self.where_clause.set_conditions(conditions);
-        self
-    }
-    pub fn set_returning_clause(&mut self, returning_clause: ReturningClause) -> &mut Self {
-        self.returning_clause  = Some(returning_clause);
-        self
 
-    }
-}
-
-impl SqlBuilder for UpdateStatement {
-    fn build_sql(mut self) -> String {
-        let fields_without_id = self.set_fields.iter().filter(|field| *field != "id");
-
-        let mut set_fields = String::new();
-    
-        let mut where_id  = String::new();
-
-        fields_without_id.clone().enumerate().for_each(|(index, field)| {
-             set_fields.push_str(format!("{} = ${},",field, index + 1).as_str());
-        });
-
-        set_fields.pop();
-
-        where_id.push_str(format!("id = ${}", fields_without_id.count() + 1).as_str());
-
-        self.set_where(vec![where_id]);
-
-        let returning_clause = if self.returning_clause.is_some() {
-            self.returning_clause.unwrap().build_sql()
-        } else {
-            "".into()
-        };
-
- 
-        format!("UPDATE {} SET {} {} {}", self.update_table_name, set_fields, self.where_clause.build_sql(), returning_clause)
-    }
-}
 
 impl DeleteStatement {
     pub fn new(table_name: &str, where_clause: WhereClause) -> Self {
@@ -184,30 +225,4 @@ impl SqlBuilder for DeleteStatement {
     }
 }
 
-impl InsertStatement {
-    pub fn new(table_name: &str, insert_fields: &Vec<String>) -> Self {
-        Self {
-            table_name: table_name.to_owned(),
-            insert_fields: insert_fields.to_owned(),
-            values: vec![],
-            returning_clause: None,
-        }
-    }
-}
 
-impl SqlBuilder for InsertStatement {
-    fn build_sql(self) -> String {
-
-        let mut fields_to_insert = String::new(); 
-        let mut values_to_insert = String::new(); 
-
-        self.insert_fields.iter().enumerate().for_each(|(index, field)| {
-
-            fields_to_insert.push_str(format!("{},", field).as_str());
-            values_to_insert.push_str(format!("${}", index).as_str());
-
-        });
-
-        format!("INSERT INTO {} ({}) VALUES ({})", self.table_name, fields_to_insert, values_to_insert)
-    }
-}
