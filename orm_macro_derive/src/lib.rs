@@ -56,6 +56,8 @@ pub fn get_repository(struc: TokenStream) -> TokenStream {
 fn impl_repository(struc_data: StructData) -> TokenStream {
     let orm_struct_name = struc_data.struct_name;
 
+    let table_name = struc_data.table_name.clone();
+
     //for update sql statement we dont want the id to appear
     let fields_ignoring_id : Vec<String> = struc_data.fields.iter().filter(|field| *field != "id").map(|field| field.to_string()).collect();
 
@@ -92,12 +94,19 @@ fn impl_repository(struc_data: StructData) -> TokenStream {
     let delete_statement = delete_builder.build_sql();
     let insert_statement = insert_builder.build_sql();
 
-
     let find_method_docs = format!("Generates this sql: {}", select_statement);
     let find_method = quote! {
         #[doc = #find_method_docs]
-        fn find(&self) -> &str {
-            #select_statement
+        fn find(&self) -> String {
+
+            if self.select_fields.is_empty() {
+                return #select_statement.into()
+
+            }
+
+            
+            format!("SELECT {} FROM {}", self.select_fields, #table_name.to_string())
+            
         }
     };
 
@@ -134,17 +143,26 @@ fn impl_repository(struc_data: StructData) -> TokenStream {
         }
     };
 
-    quote! {
+    let declare_struct = quote! {
 
     #[derive(Debug)]
-    pub struct #orm_struct_name {}
+    pub struct #orm_struct_name {
+        select_fields : String,
+
+    }
+
+    };
+
+    quote! {
+
+    #declare_struct
 
 
     impl #orm_struct_name {
 
         ///Instanciates a new OrmRepository builder with the structs properties as table fields
         pub fn builder() -> Self {
-            Self {}
+            Self { select_fields : "".into() }
         }
 
     }
@@ -159,6 +177,24 @@ fn impl_repository(struc_data: StructData) -> TokenStream {
 
         #update_method
 
+
+    /// Used to select specific properties, but its easier to make a Dto and derive OrmRepository
+    /// instead of using this
+
+    fn select_fields(&mut self, fields : Vec<&str>) -> &mut Self {
+        for field in fields {
+
+        self.select_fields.push_str(field);
+
+        self.select_fields.push_str(", ");
+
+        }
+
+        self.select_fields.pop();
+        self.select_fields.pop();
+
+        self
+    }
 
     }
 

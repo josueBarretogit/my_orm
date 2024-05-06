@@ -3,7 +3,10 @@ extern crate orm_macro_derive;
 ///This trait contains the methods that generate sql
 pub trait OrmRepository {
     /// generate: SELECT {struct_fields} from {table_name}
-    fn find(&self) -> &str;
+    fn find(&self) -> String;
+    ///Used to specify which fields to select
+    #[deprecated(since="1.2.3", note="Removing this unnecesary method will make find() return &str instead of String, in the future there will be better find methods")]
+    fn select_fields(&mut self, fields: Vec<&str>) -> &mut Self;
     /// generate: INSERT INTO {table_name} ({struct_fields}) VALUES({$1,$2...}) RETURNING
     /// {struct_fields}
     fn create(&mut self) -> &str;

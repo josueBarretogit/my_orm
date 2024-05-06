@@ -102,6 +102,4 @@ impl BookRepository {
 }
     
 
-
-
 ```
