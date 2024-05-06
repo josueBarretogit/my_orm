@@ -13,3 +13,10 @@ license = "MIT"
 
 [dependencies]
 orm_macro_derive = { version="1.1.3",  path = "orm_macro_derive" }
+
+
+[features]
+default = ["postgres"]
+postgres = []
+mysql = []
+sqlite = []

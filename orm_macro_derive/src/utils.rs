@@ -18,6 +18,7 @@ pub struct SelectStatement {
 }
 
 impl SelectStatement {
+
     pub fn set_where(&mut self, where_clause: WhereClause) -> &mut Self {
         self.where_clause = Some(where_clause);
         self
@@ -98,6 +99,15 @@ impl UpdateStatement {
         self
     }
 
+    #[cfg(not(feature = "postgres"))]
+    pub fn set_fields(&mut self, fields : Vec<String>) -> &mut Self { 
+        self.set_fields  = fields.iter().map(|field| format!("{} = ?,",  field)).collect();
+        self.set_fields.pop();
+        self
+    }
+
+
+    #[cfg(feature = "postgres")]
     pub fn set_fields(&mut self, fields : Vec<String>) -> &mut Self { 
         self.set_fields  = fields.iter().enumerate().map(|(index, field)| format!("{} = ${},",  field, index + 1)).collect();
         self.set_fields.pop();
@@ -154,7 +164,13 @@ impl SqlBuilder for InsertStatement {
         self.insert_fields.iter().enumerate().for_each(|(index, field)| {
 
             fields_to_insert.push_str(format!("{},", field).as_str());
+
+            #[cfg(feature = "postgres")]
             values_to_insert.push_str(format!("${},", index + 1).as_str());
+
+            #[cfg(not(feature = "postgres"))]
+            values_to_insert.push_str("?,");
+
 
         });
 
@@ -200,8 +216,15 @@ impl SqlBuilder for DeleteStatement {
         
         let mut where_clause = WhereClause::new();
 
+            #[cfg(feature = "postgres")]
             where_clause
             .set_conditions(vec!["id = $1".into()]);
+
+            #[cfg(not(feature = "postgres"))]
+            where_clause
+            .set_conditions(vec!["id = ?".into()]);
+
+
         let returning_clause = match self.returning_clause {
             Some(returning) => returning.build_sql(),
             None => "".into()
@@ -224,26 +247,6 @@ pub struct WhereClause {
     conditions: Vec<String>,
 }
 
-pub struct ReturningClause {
-    fields: Vec<String>,
-}
-impl ReturningClause {
-    pub fn new(fields : &Vec<String>) -> Self {
-        Self { fields : fields.to_owned() }
-    }
-}
-
-impl SqlBuilder for ReturningClause {
-    fn build_sql(self) -> String {
-        let mut fields : String = self.fields.iter().map(|field| format!("{},", field)).collect();
-        fields.pop();
-        
-        format!("RETURNING id,{}", fields)
-    }
-}
-
-
-
 
 impl WhereClause {
     pub fn set_conditions(&mut self, conditions: Vec<String>) -> &mut Self {
@@ -263,5 +266,26 @@ impl SqlBuilder for WhereClause {
         format!("WHERE {}", conditions)
     }
 }
+
+
+
+pub struct ReturningClause {
+    fields: Vec<String>,
+}
+impl ReturningClause {
+    pub fn new(fields : &Vec<String>) -> Self {
+        Self { fields : fields.to_owned() }
+    }
+}
+
+impl SqlBuilder for ReturningClause {
+    fn build_sql(self) -> String {
+        let mut fields : String = self.fields.iter().map(|field| format!("{},", field)).collect();
+        fields.pop();
+        
+        format!("RETURNING id,{}", fields)
+    }
+}
+
 
 
