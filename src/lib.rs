@@ -53,7 +53,7 @@ mod tests {
     #[test]
     fn find_method_build_select_sql() {
         assert_eq!(
-            "SELECT title,others FROM entity",
+            "SELECT title,others FROM entity ",
             EntityFindDtoOrm::builder().find()
         )
     }
@@ -61,7 +61,7 @@ mod tests {
     #[test]
     fn find_method_build_select_sql_with_main() {
         assert_eq!(
-            "SELECT id,title,description,others,another_property FROM entity",
+            "SELECT id,title,description,others,another_property FROM entity ",
             EntityOrm::builder().find()
         )
     }

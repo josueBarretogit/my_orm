@@ -13,7 +13,62 @@ pub trait SqlBuilder {
 pub struct SelectStatement {
     select_fields: Vec<String>,
     from_table: String,
+    joins : Option<JoinsClause>,
     where_clause: Option<WhereClause>,
+}
+
+impl SelectStatement {
+    pub fn set_where(&mut self, where_clause: WhereClause) -> &mut Self {
+        self.where_clause = Some(where_clause);
+        self
+    }
+
+
+    pub fn new(select_fields: &Vec<String>, from_table: &str) -> Self {
+        Self {
+            select_fields: select_fields.to_owned(),
+            from_table: from_table.to_owned(),
+            joins : None,
+            where_clause: None,
+        }
+    }
+}
+
+impl SqlBuilder for SelectStatement {
+    fn build_sql(self) -> String {
+        let mut fields: String = self
+            .select_fields
+            .iter()
+            .map(|field| format!("{},", field))
+            .collect();
+
+        fields.pop();
+
+        let where_clause = match self.where_clause {
+            Some(where_clause_builder) => where_clause_builder.build_sql(),
+            None => "".into(),
+        };
+
+        format!(
+            "SELECT {} FROM {} {}",
+            fields, self.from_table, where_clause
+        )
+    }
+}
+
+pub struct JoinsClause {}
+
+impl JoinsClause {
+    pub fn new() -> Self {
+        Self {}
+
+    }
+}
+
+impl SqlBuilder for JoinsClause {
+    fn build_sql(self) -> String {
+        format!("INNER JOIN")
+    }
 }
 
 pub struct UpdateStatement {
@@ -124,6 +179,47 @@ pub struct DeleteStatement {
     returning_clause: Option<ReturningClause>,
 }
 
+impl DeleteStatement {
+    pub fn new(table_name: &str, where_clause: WhereClause) -> Self {
+        Self {
+            table_name: table_name.to_owned(),
+            where_clause,
+            returning_clause: None,
+        }
+    }
+
+    pub fn set_returning_clause(&mut self, returning_clause : ReturningClause)  -> &mut Self {
+        self.returning_clause = Some(returning_clause);
+        self
+    }
+
+}
+
+impl SqlBuilder for DeleteStatement {
+    fn build_sql(self) -> String {
+        
+        let mut where_clause = WhereClause::new();
+
+            where_clause
+            .set_conditions(vec!["id = $1".into()]);
+        let returning_clause = match self.returning_clause {
+            Some(returning) => returning.build_sql(),
+            None => "".into()
+        };
+
+        format!(
+            "DELETE FROM {} {} {}",
+            self.table_name,
+            where_clause.build_sql(),
+        returning_clause
+        
+        
+        )
+    }
+}
+
+
+
 pub struct WhereClause {
     conditions: Vec<String>,
 }
@@ -147,42 +243,7 @@ impl SqlBuilder for ReturningClause {
 }
 
 
-impl SelectStatement {
-    pub fn set_where(&mut self, where_clause: WhereClause) -> &mut Self {
-        self.where_clause = Some(where_clause);
-        self
-    }
 
-    pub fn new(select_fields: &Vec<String>, from_table: &str) -> Self {
-        Self {
-            select_fields: select_fields.to_owned(),
-            from_table: from_table.to_owned(),
-            where_clause: None,
-        }
-    }
-}
-
-impl SqlBuilder for SelectStatement {
-    fn build_sql(self) -> String {
-        let mut fields: String = self
-            .select_fields
-            .iter()
-            .map(|field| format!("{},", field))
-            .collect();
-
-        fields.pop();
-
-        let where_clause = match self.where_clause {
-            Some(where_clause_builder) => where_clause_builder.build_sql(),
-            None => "".into(),
-        };
-
-        format!(
-            "SELECT {} from {} {}",
-            fields, self.from_table, where_clause
-        )
-    }
-}
 
 impl WhereClause {
     pub fn set_conditions(&mut self, conditions: Vec<String>) -> &mut Self {
@@ -200,28 +261,6 @@ impl SqlBuilder for WhereClause {
     fn build_sql(self) -> String {
         let conditions : String = self.conditions.iter().map(|cond| cond.to_string()).collect();
         format!("WHERE {}", conditions)
-    }
-}
-
-
-
-impl DeleteStatement {
-    pub fn new(table_name: &str, where_clause: WhereClause) -> Self {
-        Self {
-            table_name: table_name.to_owned(),
-            where_clause,
-            returning_clause: None,
-        }
-    }
-}
-
-impl SqlBuilder for DeleteStatement {
-    fn build_sql(self) -> String {
-        format!(
-            "DELETE FROM {} {}",
-            self.table_name,
-            self.where_clause.build_sql()
-        )
     }
 }
 

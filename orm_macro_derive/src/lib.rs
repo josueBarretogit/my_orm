@@ -72,9 +72,10 @@ fn impl_repository(struc_data: StructData) -> TokenStream {
 
     let mut select_builder = SelectStatement::new(&struc_data.fields, &struc_data.table_name);
 
-
-
     let mut delete_builder = DeleteStatement::new(&struc_data.table_name, WhereClause::new());
+
+    delete_builder.set_returning_clause(ReturningClause::new(&fields_ignoring_id));
+
 
     let mut insert_builder = InsertStatement::new(&struc_data.table_name, &fields_ignoring_id, fields_ignoring_id.clone());
 
