@@ -13,21 +13,23 @@ mod utils;
 struct StructData {
     fields: Vec<String>,
     table_name: String,
+    id_table: String,
     struct_name: Ident,
 }
 
 impl StructData {
-    fn new(fields: Vec<String>, struct_name: Ident, table_name: String) -> Self {
+    fn new(fields: Vec<String>, struct_name: Ident, table_name: String, id_table: String) -> Self {
         Self {
             fields,
             struct_name,
             table_name,
+            id_table,
         }
     }
 }
 
 #[allow(dead_code)]
-#[proc_macro_derive(GetRepository, attributes(table_name))]
+#[proc_macro_derive(GetRepository, attributes(table_name, id))]
 pub fn get_repository(struc: TokenStream) -> TokenStream {
     let input = parse_macro_input!(struc as DeriveInput);
 
@@ -38,10 +40,21 @@ pub fn get_repository(struc: TokenStream) -> TokenStream {
         match &name.meta {
             syn::Meta::List(data) => data.tokens.to_string(),
             _ => panic!("The attribute should look like this #[table_name(your_table_name)]")
-            
         }
 
     } ).unwrap_or_else(|| panic!(r#"#[table_name(your_table_name)] attribute is necessary to indicate which table the methods will affect"#));
+
+    let id_table = if attrs.iter().len() > 1 {
+        attrs
+            .last()
+            .map(|id| match &id.meta {
+                syn::Meta::List(data) => data.tokens.to_string(),
+                _ => panic!("the attribute should look like this:"),
+            })
+            .unwrap()
+    } else {
+        panic!("set the table id like this: #[id(your_table_id)]");
+    };
 
     let struct_name_raw = &input.ident;
 
@@ -60,68 +73,81 @@ pub fn get_repository(struc: TokenStream) -> TokenStream {
     };
 
     //This part is only concerned about having the structs's properties / data
-    impl_repository(StructData::new(fields, new_struct_name, table_name))
+    impl_repository(StructData::new(
+        fields,
+        new_struct_name,
+        table_name,
+        id_table,
+    ))
 }
 
 fn impl_repository(struc_data: StructData) -> TokenStream {
     let orm_struct_name = struc_data.struct_name;
 
     let table_name = struc_data.table_name.clone();
-
-    //for update sql statement we dont want the id to appear
-    let fields_ignoring_id: Vec<String> = struc_data
-        .fields
-        .iter()
-        .filter(|field| *field != "id")
-        .map(|field| field.to_string())
-        .collect();
+    let id_name = struc_data.id_table;
+    let fields = struc_data.fields;
 
     let mut update_where_condition = String::new();
 
     #[cfg(feature = "postgres")]
-    update_where_condition.push_str(format!("id = ${}", fields_ignoring_id.len() + 1).as_str());
+    update_where_condition.push_str(format!("{} = ${}", id_name, fields.len() + 1).as_str());
 
     #[cfg(not(feature = "postgres"))]
-    update_where_condition.push_str("id = ?");
+    update_where_condition.push_str(format!("{} = ?", id_name).as_str());
 
     let mut update_builder = UpdateStatement::new(&struc_data.table_name, WhereClause::new());
 
     update_builder
-        .set_fields(fields_ignoring_id.clone())
+        .set_fields(fields.clone())
         .set_where(vec![update_where_condition])
-        .set_returning_clause(ReturningClause::new(&fields_ignoring_id));
+        .set_returning_clause(ReturningClause::new(&fields, &id_name));
 
-    let select_builder = SelectStatement::new(&struc_data.fields, &struc_data.table_name);
+    let select_builder = SelectStatement::new(&fields, &table_name);
 
     let mut delete_builder = DeleteStatement::new(&struc_data.table_name, WhereClause::new());
 
-    delete_builder.set_returning_clause(ReturningClause::new(&fields_ignoring_id));
+    let mut where_clause_delete = WhereClause::new();
 
-    let mut insert_builder = InsertStatement::new(
-        &struc_data.table_name,
-        &fields_ignoring_id,
-        fields_ignoring_id.clone(),
-    );
+    #[cfg(feature = "postgres")]
+    where_clause_delete.set_conditions(vec![format!("{} = $1", id_name)]);
 
-    insert_builder.set_returning_clause(ReturningClause::new(&fields_ignoring_id));
+    #[cfg(not(feature = "postgres"))]
+    where_clause_delete.set_conditions(vec![format!("{} = ?", id_name)]);
+
+    delete_builder.set_where_clause(where_clause_delete);
+
+    delete_builder.set_returning_clause(ReturningClause::new(&fields, &id_name));
+
+    let mut insert_builder = InsertStatement::new(&struc_data.table_name, &fields, fields.clone());
+
+    insert_builder.set_returning_clause(ReturningClause::new(&fields, &id_name));
 
     let select_statement = select_builder.build_sql();
     let update_statement = update_builder.build_sql();
     let delete_statement = delete_builder.build_sql();
     let insert_statement = insert_builder.build_sql();
 
+    let mut find_by_id_builder = SelectStatement::new(&fields, &table_name);
+
+    let mut where_find_by_id_builder = WhereClause::new();
+
+    #[cfg(feature = "postgres")]
+    where_find_by_id_builder.set_conditions(vec![format!("{} = $1", id_name)]);
+
+    #[cfg(not(feature = "postgres"))]
+    where_find_by_id_builder.set_conditions(vec![format!("{} = ?", id_name)]);
+
+    find_by_id_builder.set_where(where_find_by_id_builder);
+
+    let find_by_id_statement = find_by_id_builder.build_sql();
+
     let find_method_docs = format!("Generates this sql: {}", select_statement);
     let find_method = quote! {
         #[doc = #find_method_docs]
-        fn find(&self) -> String {
+        fn find(&self) -> &str {
 
-            if self.select_fields.is_empty() {
-                return #select_statement.into()
-
-            }
-
-
-            format!("SELECT {} FROM {}", self.select_fields, #table_name.to_string())
+                 #select_statement
 
         }
     };
@@ -158,11 +184,21 @@ fn impl_repository(struc_data: StructData) -> TokenStream {
         }
     };
 
+    let find_by_id_method_name = format_ident!("find_by_{}", id_name);
+
+    let find_by_id_method_docs = format!("Generates the following sql: {}", find_by_id_statement);
+
+    let find_by_id_method = quote! {
+        #[doc = #find_by_id_method_docs]
+        fn #find_by_id_method_name(&self) -> &str {
+        #find_by_id_statement
+        }
+    };
+
     let declare_struct = quote! {
 
     #[derive(Debug)]
     pub struct #orm_struct_name {
-        select_fields : String,
 
     }
 
@@ -177,8 +213,11 @@ fn impl_repository(struc_data: StructData) -> TokenStream {
 
         ///Instanciates a new OrmRepository builder with the structs properties as table fields
         pub fn builder() -> Self {
-            Self { select_fields : "".into() }
+            Self {}
         }
+
+        #find_by_id_method
+
 
     }
 
@@ -191,25 +230,6 @@ fn impl_repository(struc_data: StructData) -> TokenStream {
         #delete_method
 
         #update_method
-
-
-    /// Used to select specific properties, but its easier to make a Dto and derive OrmRepository
-    /// instead of using this
-
-    fn select_fields(&mut self, fields : Vec<&str>) -> &mut Self {
-        for field in fields {
-
-        self.select_fields.push_str(field);
-
-        self.select_fields.push_str(", ");
-
-        }
-
-        self.select_fields.pop();
-        self.select_fields.pop();
-
-        self
-    }
 
     }
 
