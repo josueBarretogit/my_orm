@@ -9,7 +9,7 @@ pub trait OrmRepository {
     fn select_fields(&mut self, fields: Vec<&str>) -> &mut Self;
     /// generate: INSERT INTO {table_name} ({struct_fields}) VALUES({$1,$2...}) RETURNING
     /// {struct_fields}
-    fn create(&mut self) -> &str;
+    fn create(&self) -> &str;
     /// generate: UPDATE {table_name} SET struct_field1 = $1 , WHERE id = $2 RETURNING {struct_fields}
     /// {struct_fields}
     fn update(&self) -> &str;

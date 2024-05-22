@@ -1,8 +1,10 @@
 extern crate proc_macro;
 
-use proc_macro::TokenStream;
+use core::panic;
+
+use proc_macro::{Span, TokenStream};
 use quote::{format_ident, quote, ToTokens};
-use syn::{parse_macro_input, DeriveInput, Ident};
+use syn::{parse_macro_input, Attribute, DeriveInput, Ident};
 use utils::*;
 
 mod utils;
@@ -27,26 +29,34 @@ impl StructData {
 #[allow(dead_code)]
 #[proc_macro_derive(GetRepository, attributes(table_name))]
 pub fn get_repository(struc: TokenStream) -> TokenStream {
-    // this part is only concerned about extracting the data from the struct
     let input = parse_macro_input!(struc as DeriveInput);
 
     let attrs = input.attrs;
 
-    let table_name = attrs.iter().last().unwrap();
+    let table_name = attrs.first().map(|name| {
 
-    let table_name = extract_string_atribute(table_name.to_token_stream().to_string());
+        match &name.meta {
+            syn::Meta::List(data) => data.tokens.to_string(),
+            _ => panic!("The attribute should look like this #[table_name(your_table_name)]")
+            
+        }
+
+    } ).unwrap_or_else(|| panic!(r#"#[table_name(your_table_name)] attribute is necessary to indicate which table the methods will affect"#));
 
     let struct_name_raw = &input.ident;
 
     let new_struct_name = format_ident!("{}Orm", struct_name_raw);
 
     let fields: Vec<String> = match input.data {
-        syn::Data::Struct(ref data) => data
-            .fields
-            .iter()
-            .map(|field| field.ident.as_ref().unwrap().to_string())
-            .collect(),
-        _ => unimplemented!(),
+        syn::Data::Struct(ref data) => match data.fields {
+            syn::Fields::Named(ref fields) => fields
+                .named
+                .iter()
+                .map(|fiel| fiel.ident.as_ref().unwrap().to_string())
+                .collect(),
+            _ => panic!("This macro only works on structs with named fields"),
+        },
+        _ => panic!("This macro only works on structs"),
     };
 
     //This part is only concerned about having the structs's properties / data
@@ -59,22 +69,25 @@ fn impl_repository(struc_data: StructData) -> TokenStream {
     let table_name = struc_data.table_name.clone();
 
     //for update sql statement we dont want the id to appear
-    let fields_ignoring_id : Vec<String> = struc_data.fields.iter().filter(|field| *field != "id").map(|field| field.to_string()).collect();
+    let fields_ignoring_id: Vec<String> = struc_data
+        .fields
+        .iter()
+        .filter(|field| *field != "id")
+        .map(|field| field.to_string())
+        .collect();
 
-    
-    let mut update_where_condition  = String::new();
+    let mut update_where_condition = String::new();
 
     #[cfg(feature = "postgres")]
     update_where_condition.push_str(format!("id = ${}", fields_ignoring_id.len() + 1).as_str());
 
-
     #[cfg(not(feature = "postgres"))]
     update_where_condition.push_str("id = ?");
 
-
     let mut update_builder = UpdateStatement::new(&struc_data.table_name, WhereClause::new());
 
-    update_builder.set_fields(fields_ignoring_id.clone())
+    update_builder
+        .set_fields(fields_ignoring_id.clone())
         .set_where(vec![update_where_condition])
         .set_returning_clause(ReturningClause::new(&fields_ignoring_id));
 
@@ -84,11 +97,14 @@ fn impl_repository(struc_data: StructData) -> TokenStream {
 
     delete_builder.set_returning_clause(ReturningClause::new(&fields_ignoring_id));
 
-
-    let mut insert_builder = InsertStatement::new(&struc_data.table_name, &fields_ignoring_id, fields_ignoring_id.clone());
+    let mut insert_builder = InsertStatement::new(
+        &struc_data.table_name,
+        &fields_ignoring_id,
+        fields_ignoring_id.clone(),
+    );
 
     insert_builder.set_returning_clause(ReturningClause::new(&fields_ignoring_id));
-    
+
     let select_statement = select_builder.build_sql();
     let update_statement = update_builder.build_sql();
     let delete_statement = delete_builder.build_sql();
@@ -104,9 +120,9 @@ fn impl_repository(struc_data: StructData) -> TokenStream {
 
             }
 
-            
+
             format!("SELECT {} FROM {}", self.select_fields, #table_name.to_string())
-            
+
         }
     };
 
@@ -114,14 +130,13 @@ fn impl_repository(struc_data: StructData) -> TokenStream {
     let create_method = quote! {
 
         #[doc = #create_method_docs]
-        fn create(&mut self) -> &str {
+        fn create(&self) -> &str {
 
             #insert_statement
 
         }
 
     };
-
 
     let update_method_docs = format!("Generates this sql: {}", update_statement);
     let update_method = quote! {
@@ -132,7 +147,7 @@ fn impl_repository(struc_data: StructData) -> TokenStream {
     };
 
     let delete_method_docs = format!("Generates the following sql: {}", delete_statement);
-    let delete_method = quote! { 
+    let delete_method = quote! {
 
         #[doc = #delete_method_docs]
         fn delete(&self) -> &str {
