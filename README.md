@@ -24,8 +24,8 @@ subject to changes
 
 put this in your cargo.toml: 
 ```rust 
-orm_macro = "1.3.1"
-orm_macro_derive = { version = "1.3.1", features = ["postgres"] }  
+orm_macro = "1.3.0"
+orm_macro_derive = { version = "1.3.0", features = ["postgres"] }  
 ```
 
 The feature flag  "postgres"  uses postgres style bindings, for example: 
@@ -35,8 +35,8 @@ DELETE FROM table WHERE id = ? # this bindings are used by mysql and sqlite
 ```
 If you want to use mysql bindings then in your cargo.toml
 ```rust
-orm_macro =  "1.3.1"
-orm_macro_derive = { version = "1.3.1", features = ["mysql"] } 
+orm_macro =  "1.3.0"
+orm_macro_derive = { version = "1.3.0", features = ["mysql"] } 
 ```
 
 ## Usage
