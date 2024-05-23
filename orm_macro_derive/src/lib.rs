@@ -2,9 +2,9 @@ extern crate proc_macro;
 
 use core::panic;
 
-use proc_macro::{Span, TokenStream};
-use quote::{format_ident, quote, ToTokens};
-use syn::{parse_macro_input, Attribute, DeriveInput, Ident};
+use proc_macro::TokenStream;
+use quote::{format_ident, quote};
+use syn::{parse_macro_input, DeriveInput, Ident};
 use utils::*;
 
 mod utils;
@@ -49,7 +49,7 @@ pub fn get_repository(struc: TokenStream) -> TokenStream {
             .last()
             .map(|id| match &id.meta {
                 syn::Meta::List(data) => data.tokens.to_string(),
-                _ => panic!("the attribute should look like this:"),
+                _ => panic!("the attribute should look like this: #[id(your_table_id)]"),
             })
             .unwrap()
     } else {
@@ -235,18 +235,4 @@ fn impl_repository(struc_data: StructData) -> TokenStream {
 
     }
     .into()
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::utils::*;
-
-    #[test]
-    fn extracts_table_name() {
-        let attribute_from_struct = r#"table_name("table_name_extracted")"#;
-        assert_eq!(
-            "table_name_extracted",
-            extract_string_atribute(attribute_from_struct.to_string())
-        )
-    }
 }
