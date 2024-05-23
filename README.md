@@ -2,6 +2,13 @@ Tired of learning super complex Orms? bored of doing sqlbuilder.select("fields")
 sometimes you just want a quick, easy to use sql statement that matches your structs definitions even if it 
 changes, well this crate is for you 
 
+
+
+# Disclaimer
+
+I am new to rust and at the time I didn´t know how versioning works, so although the version says it's in 1.*.* this crate is still
+subject to changes
+
 # Table of contents
 
  1. [Installation](#Installation)
