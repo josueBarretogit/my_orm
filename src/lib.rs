@@ -3,13 +3,10 @@ extern crate orm_macro_derive;
 ///This trait contains the methods that generate sql
 pub trait OrmRepository {
     /// generate: SELECT {struct_fields} from {table_name}
-    fn find(&self) -> String;
-    ///Used to specify which fields to select
-    #[deprecated(since="1.2.0", note="Removing this unnecesary method will make find() return &str instead of String, in the future there will be better find methods")]
-    fn select_fields(&mut self, fields: Vec<&str>) -> &mut Self;
+    fn find(&self) -> &str;
     /// generate: INSERT INTO {table_name} ({struct_fields}) VALUES({$1,$2...}) RETURNING
     /// {struct_fields}
-    fn create(&mut self) -> &str;
+    fn create(&self) -> &str;
     /// generate: UPDATE {table_name} SET struct_field1 = $1 , WHERE id = $2 RETURNING {struct_fields}
     /// {struct_fields}
     fn update(&self) -> &str;
@@ -24,7 +21,8 @@ mod tests {
     use crate::OrmRepository;
 
     #[derive(Default, orm_macro_derive::GetRepository)]
-    #[table_name("entity")]
+    #[table_name(entity)]
+    #[id(id)]
     struct Entity {
         id: i64,
         title: String,
@@ -34,21 +32,24 @@ mod tests {
     }
 
     #[derive(Default, orm_macro_derive::GetRepository)]
-    #[table_name("entity")]
+    #[table_name(entity)]
+    #[id(id)]
     struct EntityUpdateDto {
         title: String,
         description: String,
     }
 
     #[derive(Default, orm_macro_derive::GetRepository)]
-    #[table_name("entity")]
+    #[table_name(entity)]
+    #[id(id)]
     struct EntityFindDto {
         title: String,
         others: String,
     }
 
     #[derive(Default, orm_macro_derive::GetRepository)]
-    #[table_name("entity")]
+    #[table_name(entity)]
+    #[id(id)]
     struct EntityCreateDto {
         description: String,
     }
@@ -58,6 +59,24 @@ mod tests {
         assert_eq!(
             "SELECT title,others FROM entity ",
             EntityFindDtoOrm::builder().find()
+        )
+    }
+
+    #[cfg(feature = "postgres")]
+    #[test]
+    fn find_by_id_method_builds_sql_postgres() {
+        assert_eq!(
+            "SELECT title,others FROM entity WHERE id = $1",
+            EntityFindDtoOrm::builder().find_by_id()
+        )
+    }
+
+    #[cfg(not(feature = "postgres"))]
+    #[test]
+    fn find_by_id_method_builds_sql() {
+        assert_eq!(
+            "SELECT title,others FROM entity WHERE id = ?",
+            EntityFindDtoOrm::builder().find_by_id()
         )
     }
 
@@ -71,32 +90,12 @@ mod tests {
 
     #[cfg(feature = "postgres")]
     #[test]
-    fn create_method_build_insert_sql_with_main_entity() {
-        assert_eq!(
-    "INSERT INTO entity (title,description,others,another_property) VALUES ($1,$2,$3,$4) RETURNING id,title,description,others,another_property",
-    EntityOrm::builder().create()
-    )
-    }
-
-    #[cfg(not(feature = "postgres"))]
-    #[test]
-    fn create_method_build_insert_sql_with_main_entity_mysql_bindings() {
-        assert_eq!(
-    "INSERT INTO entity (title,description,others,another_property) VALUES (?,?,?,?) RETURNING id,title,description,others,another_property",
-    EntityOrm::builder().create()
-    )
-    }
-
-
-    #[cfg(feature = "postgres")]
-    #[test]
     fn create_method_build_insert_sql() {
         assert_eq!(
             "INSERT INTO entity (description) VALUES ($1) RETURNING id,description",
             EntityCreateDtoOrm::builder().create()
         )
     }
-
 
     #[cfg(not(feature = "postgres"))]
     #[test]
@@ -106,7 +105,6 @@ mod tests {
             EntityCreateDtoOrm::builder().create()
         )
     }
-
 
     #[cfg(feature = "postgres")]
     #[test]
@@ -126,7 +124,6 @@ mod tests {
     )
     }
 
-
     #[cfg(feature = "postgres")]
     #[test]
     fn update_method_builds_sql() {
@@ -134,7 +131,6 @@ mod tests {
     "UPDATE entity SET title = $1,description = $2 WHERE id = $3 RETURNING id,title,description",
     EntityUpdateDtoOrm::builder().update()
     )
-
     }
 
     #[cfg(not(feature = "postgres"))]
@@ -146,14 +142,11 @@ mod tests {
     )
     }
 
-
-
-
     #[cfg(feature = "postgres")]
     #[test]
     fn update_method_builds_sql_with_main() {
         assert_eq!(
-    "UPDATE entity SET title = $1,description = $2,others = $3,another_property = $4 WHERE id = $5 RETURNING id,title,description,others,another_property",
+    "UPDATE entity SET id = $1,title = $2,description = $3,others = $4,another_property = $5 WHERE id = $6 RETURNING id,title,description,others,another_property",
     EntityOrm::builder().update()
     )
     }
@@ -162,9 +155,8 @@ mod tests {
     #[test]
     fn test_update_query_with_mysql_binding() {
         assert_eq!(
-    "UPDATE entity SET title = ?,description = ?,others = ?,another_property = ? WHERE id = ? RETURNING id,title,description,others,another_property",
+    "UPDATE entity SET id = ?,title = ?,description = ?,others = ?,another_property = ? WHERE id = ? RETURNING id,title,description,others,another_property",
         EntityOrm::builder().update()
     )
     }
-
 }
